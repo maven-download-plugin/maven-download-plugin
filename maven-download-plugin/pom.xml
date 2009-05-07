@@ -40,10 +40,10 @@
 	</licenses>
 	<scm>
 		<connection>
-	  		http://maven-download-plugin.googlecode.com/svn/trunk/
+	  		scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/
   		</connection>
 		<developerConnection>
-  			https://maven-download-plugin.googlecode.com/svn/trunk/
+  			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/
   		</developerConnection>
 		<url>
   			http://code.google.com/p/maven-download-plugin/source/browse/
@@ -83,7 +83,7 @@
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin release repository</name>
-			<url>svn:https://maven-download-plugin.googlecode.com/svn/release-repository/</url>
+			<url>svn:https://maven-download-plugin.googlecode.com/svn/trunk/release-repository/</url>
 		</repository>
 		<snapshotRepository>
 			<uniqueVersion>false</uniqueVersion>
@@ -91,5 +91,9 @@
 			<name>Maven download plugin release repository</name>
 			<url>svn:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
 		</snapshotRepository>
+		<site>
+      <id>maven-download-plugin</id>
+      <url>svn:https://maven-download-plugin.googlecode.com/svn/site</url>
+    </site>
 	</distributionManagement>
 </project>
