@@ -10,8 +10,7 @@
 	<contributors>
 		<contributor>
 			<name>Marc-Andre Houle</name>
-			<email>mhoule@gmail.com</email>
-			<timezone>-5</timezone>
+			<timezone>-4</timezone>
 			<roles>
 				<role>Developer</role>
 				<role>Designer</role>
@@ -63,6 +62,30 @@
 		</dependency>
 	</dependencies>
 	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.riedelcastro</groupId>
+				<artifactId>gcupload-maven-plugin</artifactId>
+				<version>0.9</version>
+				<configuration>
+					<uploads>
+						<upload>
+							<extension>jar</extension>
+							<labels>Featured</labels>
+						</upload>
+					</uploads>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-release-plugin</artifactId>
+				<configuration>
+					<tagBase>https://maven-download-plugin.googlecode.com/svn/tags</tagBase>
+					<releaseProfiles>release</releaseProfiles>
+					<goals>deploy assembly:assembly gcupload:gcupload</goals>
+				</configuration>
+			</plugin>
+		</plugins>
 		<extensions>
 			<extension>
 				<groupId>org.jvnet.wagon-svn</groupId>
@@ -76,6 +99,10 @@
 			<id>maven2-repository.dev.java.net</id>
 			<name>Java.net Repository for Maven</name>
 			<url>http://download.java.net/maven/2/</url>
+		</repository>
+		<repository>
+			<id>repository.riedelcastro.org</id>
+			<url>http://repository.riedelcastro.org</url>
 		</repository>
 	</repositories>
 	<distributionManagement>
@@ -92,8 +119,8 @@
 			<url>svn:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
 		</snapshotRepository>
 		<site>
-      <id>maven-download-plugin</id>
-      <url>svn:https://maven-download-plugin.googlecode.com/svn/site</url>
-    </site>
+			<id>maven-download-plugin</id>
+			<url>svn:https://maven-download-plugin.googlecode.com/svn/site</url>
+		</site>
 	</distributionManagement>
 </project>
