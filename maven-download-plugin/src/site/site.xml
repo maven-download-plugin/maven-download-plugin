@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <body>
+    <menu name="Overview">
+      <item name="Introduction" href="index.html"/>
+      <item name="Goals" href="plugin-info.html"/>
+      <item name="Usage" href="usage.html"/>
+      <item name="FAQ" href="faq.html"/>
+    </menu>
+   
+    <menu name="Examples">
+      <item name="Downloading standalone artifact" href="examples/artifact.html"/>
+    </menu>
+	<menu name="Project Documentation">
+		<item name="ProjectInformation" href="project-info.html"/>
+		<item name="Project Reports" href="project-reports.html"/>
+	</menu>
+  </body>
+</project>
+

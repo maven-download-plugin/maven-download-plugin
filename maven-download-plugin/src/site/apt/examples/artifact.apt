@@ -1,0 +1,14 @@
+ ------
+ Introduction
+ ------
+ Marc-Andre Houle
+ ------
+ YYYY-MM-DD
+ ------
+
+
+Artifact download goal
+
+ This goal is meant to help the user download an artifact from the repositories directly from the command line 
+ without having to pass by the dependency plugin.  The dependency plugin is hard to use when wanting to 
+ download only one artifact seperatly.

@@ -1,0 +1,14 @@
+ ------
+ Introduction
+ ------
+ Marc-Andre Houle
+ ------
+ YYYY-MM-DD
+ ------
+
+
+Usage
+
+ The maven-download plugin give you access to different download option to be used as build process.  Take a look
+ into the examples page to know how to use each of the download plugin goals separatly.
+

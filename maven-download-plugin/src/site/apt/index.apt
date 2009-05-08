@@ -1,0 +1,61 @@
+ ------
+ Introduction
+ ------
+ Marc-Andre Houle
+ ------
+ YYYY-MM-DD
+ ------
+
+
+Maven download plugin
+
+  
+	This is a plugin meant to help maven user to download different files on different protocol in part of 
+maven build.
+	For the first implementation, there will only be a goal that will help downloading a maven artifact from the 
+command line.
+	Future version of the plugin could include web download, ftp download, scp download and so on.
+
+
+* Goals Overview
+
+  There is future goal planned that are not yet implemented.
+
+  * {{{artifact-mojo.html}maven-download-plugin:artifact}} Give the possibility to download an artifact to a 
+specified directory..
+
+* Usage
+
+  General instructions on how to use the Plugin Name can be found on the {{{usage.html}usage page}}. Some more
+  specific use cases are described in the examples given below. Last but not least, users occasionally 
+contribute
+  additional examples, tips or errata to the
+  {{{http://code.google.com/p/maven-download-plugin/w/list}plugin's wiki page}}.
+
+  In case you still have questions regarding the plugin's usage, please have a look at the {{{faq.html}FAQ}} 
+and feel
+  free to contact the {{{mail-lists.html}user mailing list}}. The posts to the mailing list are archived and 
+could
+  already contain the answer to your question as part of an older thread. Hence, it is also worth 
+browsing/searching
+  the {{{mail-lists.html}mail archive}}.
+
+  If you feel like the plugin is missing a feature or has a defect, you can fill a feature request or bug 
+report in our
+  {{{issue-tracking.html}issue tracker}}. When creating a new issue, please provide a comprehensive description 
+of your
+  concern. Especially for fixing bugs it is crucial that the developers can reproduce your problem. For this 
+reason,
+  entire debug logs, POMs or most preferably little demo projects attached to the issue are very much 
+appreciated.
+  Of course, patches are welcome, too. Contributors can check out the project from our
+  {{{source-repository.html}source repository}} and will find supplementary information in the
+  {{{http://maven.apache.org/guides/development/guide-helping.html}guide to helping with Maven}}. 
+
+* Examples
+
+  To provide you with better understanding of some usages of the Plugin Name,
+  you can take a look into the following examples:
+
+  * {{{examples/artifact.html}Downloading an artifact from repository}}
+
