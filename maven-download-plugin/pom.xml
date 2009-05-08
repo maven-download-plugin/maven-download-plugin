@@ -139,7 +139,7 @@
 		<snapshotRepository>
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
-			<name>Maven download plugin release repository</name>
+			<name>Maven download plugin snapshot repository</name>
 			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
 		</snapshotRepository>
 		<site>
