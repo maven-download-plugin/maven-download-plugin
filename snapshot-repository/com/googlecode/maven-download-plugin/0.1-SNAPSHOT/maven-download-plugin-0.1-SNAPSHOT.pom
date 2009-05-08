@@ -17,14 +17,12 @@
 			</roles>
 		</contributor>
 	</contributors>
-	<description>
-  	This is a plugin meant to help maven user to download different files on different 
-  	protocol in part of maven build.  For the first implementation, there will only be
-  	 a goal that will help downloading a maven artifact from the command line.
-  	 
-  	 Future version of the plugin could include web download, ftp download, scp
-  	 download and so on.
-  </description>
+	<description> This is a plugin meant to help maven user to download
+		different files on different protocol in part of maven build. For the
+		first implementation, there will only be a goal that will help
+		downloading a maven artifact from the command line. Future version of
+		the plugin could include web download, ftp download, scp download and
+		so on. </description>
 	<inceptionYear>2009</inceptionYear>
 	<issueManagement>
 		<system>Google code</system>
@@ -39,15 +37,21 @@
 	</licenses>
 	<scm>
 		<connection>
-	  		scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/
-  		</connection>
+			scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/ 
+		</connection>
 		<developerConnection>
-  			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/
-  		</developerConnection>
-		<url>
-  			http://code.google.com/p/maven-download-plugin/source/browse/
-  		</url>
+			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/ 
+		</developerConnection>
+		<url> http://code.google.com/p/maven-download-plugin/source/browse/ 
+		</url>
 	</scm>
+	<prerequisites>
+		<maven>2.0</maven>
+	</prerequisites>
+	<organization>
+		<name>Independant</name>
+		<url>http://maven-download-plugin.googlecode.com</url>
+	</organization>
 	<dependencies>
 		<dependency>
 			<groupId>org.apache.maven</groupId>
@@ -70,6 +74,11 @@
 				<artifactId>wagon-svn</artifactId>
 				<version>1.8</version>
 			</extension>
+			<extension>
+                <groupId>org.apache.maven.wagon</groupId>
+                <artifactId>wagon-webdav</artifactId>
+                <version>1.0-beta-2</version>
+            </extension>
 		</extensions>
 	</build>
 	<repositories>
@@ -84,17 +93,107 @@
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin release repository</name>
-			<url>svn:https://maven-download-plugin.googlecode.com/svn/trunk/release-repository/</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/release-repository/</url>
 		</repository>
 		<snapshotRepository>
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin release repository</name>
-			<url>svn:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
 		</snapshotRepository>
 		<site>
 			<id>maven-download-plugin</id>
-			<url>svn:https://maven-download-plugin.googlecode.com/svn/site</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/site</url>
 		</site>
 	</distributionManagement>
+	<reporting>
+		<plugins>
+			<plugin>
+				<artifactId>maven-plugin-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<artifactId>maven-surefire-report-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<artifactId>maven-project-info-reports-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<artifactId>maven-jxr-plugin</artifactId>
+				<configuration>
+					<linkJavadoc>true</linkJavadoc>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<configuration>
+					<quiet>true</quiet>
+				</configuration>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>javadoc</report>
+						</reports>
+						<configuration>
+							<links>
+								<link>http://java.sun.com/javase/1.5.0/docs/api/</link>
+							</links>
+						</configuration>
+					</reportSet>
+				</reportSets>
+			</plugin>
+			<plugin>
+				<artifactId>maven-pmd-plugin</artifactId>
+				<configuration>
+					<linkXref>true</linkXref>
+					<targetJdk>${jdk}</targetJdk>
+					<minimumTokens>100</minimumTokens>
+					<rulesets>
+                        <!-- Rule sets that come bundled with PMD -->
+						<ruleset>/rulesets/basic.xml</ruleset>
+						<ruleset>/rulesets/braces.xml</ruleset>
+						<ruleset>/rulesets/finalizers.xml</ruleset>
+						<ruleset>/rulesets/imports.xml</ruleset>
+						<ruleset>/rulesets/migrating.xml</ruleset>
+						<ruleset>/rulesets/strings.xml</ruleset>
+						<ruleset>/rulesets/unusedcode.xml</ruleset>
+					</rulesets>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>taglist-maven-plugin</artifactId>
+				<configuration>
+					<tags>
+						<tag>TODO</tag>
+						<tag>FIXME</tag>
+						<tag>@todo</tag>
+						<tag>@fixme</tag>
+						<tag>@deprecated</tag>
+					</tags>
+				</configuration>
+			</plugin>
+			<plugin>
+				<artifactId>maven-changes-plugin</artifactId>
+				<configuration>
+					<issueLinkTemplate>%URL%/detail?id=%ISSUE%&amp;can=1</issueLinkTemplate>
+                </configuration>
+                <reportSets>
+                    <reportSet>
+                        <reports>
+                            <report>changes-report</report>
+                        </reports>
+                    </reportSet>
+                </reportSets>
+            </plugin>
+            <plugin>
+                <artifactId>maven-changelog-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>cobertura-maven-plugin</artifactId>
+            </plugin>
+	</plugins>
+	</reporting>
+
+
 </project>
