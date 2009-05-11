@@ -12,6 +12,25 @@
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
+			<plugin>
+		                <inherited>false</inherited>
+                		<groupId>com.google.code.maven-license-plugin</groupId>
+                		<artifactId>maven-license-plugin</artifactId>
+                		<version>1.4.0</version>
+                		<configuration>
+                    			<header>${basedir}/header.txt</header>
+                    			<failIfMissing>true</failIfMissing>
+                		</configuration>
+                		<executions>
+                    			<execution>
+                        			<id>check-headers</id>
+                        			<phase>verify</phase>
+                        			<goals>
+                            				<goal>check</goal>
+                        			</goals>
+                    			</execution>
+                		</executions>
+            		</plugin>
 		</plugins>
 		<extensions>
 			<extension>
@@ -157,16 +176,17 @@
 		the plugin could include web download, ftp download, scp download and
 		so on. </description>
 	<url>http://maven-download-plugin.googlecode.com</url>
-	<contributors>
-		<contributor>
+	<developers>
+		<developer>
+			<id>mhoule</id>
 			<name>Marc-Andre Houle</name>
 			<timezone>-4</timezone>
 			<roles>
-				<role>Developer</role>
-				<role>Designer</role>
+				<role>developer</role>
+				<role>lead</role>
 			</roles>
-		</contributor>
-	</contributors>
+		</developer>
+	</developers>
 	<inceptionYear>2009</inceptionYear>
 	
 	<issueManagement>
