@@ -12,6 +12,25 @@
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
+			<plugin>
+		                <inherited>false</inherited>
+                		<groupId>com.google.code.maven-license-plugin</groupId>
+                		<artifactId>maven-license-plugin</artifactId>
+                		<version>1.4.0</version>
+                		<configuration>
+                    			<header>${basedir}/header.txt</header>
+                    			<failIfMissing>true</failIfMissing>
+                		</configuration>
+                		<executions>
+                    			<execution>
+                        			<id>check-headers</id>
+                        			<phase>verify</phase>
+                        			<goals>
+                            				<goal>check</goal>
+                        			</goals>
+                    			</execution>
+                		</executions>
+            		</plugin>
 		</plugins>
 		<extensions>
 			<extension>
