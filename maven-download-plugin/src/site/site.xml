@@ -26,7 +26,7 @@
     </menu>
    
     <menu name="Examples">
-      <item name="Downloading standalone artifact" href="examples/artifact.html"/>
+      <item name="Downloading standalone artifact" href="examples/artifact_no_pom.html"/>
     </menu>
 	<menu name="Project Documentation">
 		<item name="ProjectInformation" href="project-info.html"/>

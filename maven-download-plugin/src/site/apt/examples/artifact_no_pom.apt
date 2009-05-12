@@ -1,0 +1,57 @@
+~~
+~~ Copyright [2009] Marc-Andre Houle
+~~
+~~ Licensed under the Apache License, Version 2.0 (the "License");
+~~ you may not use this file except in compliance with the License.
+~~ You may obtain a copy of the License at
+~~
+~~ http://www.apache.org/licenses/LICENSE-2.0
+~~
+~~ Unless required by applicable law or agreed to in writing, software
+~~ distributed under the License is distributed on an "AS IS" BASIS,
+~~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+~~ See the License for the specific language governing permissions and
+~~ limitations under the License.
+~~
+ ------
+ Downloading maven artifact
+ ------
+ Marc-Andre Houle
+ ------
+ 2009-05-12
+ ------
+
+
+Command line artifact download goal
+
+ This goal is meant to help the user download an artifact from the repositories directly from the command line 
+ without having to pass by the dependency plugin.  The dependency plugin is hard to use when wanting to 
+ download only one artifact seperatly.
+ Also, this goal can be used without the need to have a pom file in the working directory.  When there is no pom files, 
+ will simply load information for repository from the settings.xml file.
+
++-------------------------------+
+mvn com.googlecode:maven-download-plugin:artifact \
+			-DgroupId=com.googlecode \
+			-DartifactId=maven-download-plugin \
+			-Dversion=0.1 \
+			-DoutputDirectory=temp
++-------------------------------+
+
+ This command would have downloaded the maven download plugin, create the directory temp if it does not exist and then copy the artifact to this location.  The plugin can also search transitively to get all the dependent artifact by using the dependencyDepth option.
+
++-------------------------------+
+mvn com.googlecode:maven-download-plugin:artifact \
+			-DgroupId=com.googlecode \
+			-DartifactId=maven-download-plugin \
+			-Dversion=0.1 \
+			-DoutputDirectory=temp \
+			-DdependencyDepth=2
++-------------------------------+
+
+ Take a look at the {{{artifact-mojo.html}artifact goal documentation}} for all the plugin options.
+
+Using from POM file
+ 
+ This is not suggested since the dependency plugin already exist and do a good job at it.  See {{{http://maven.apache.org/plugins/maven-dependency-plugin/}dependency plugin}} for more informations.
+

@@ -69,8 +69,8 @@ appreciated.
 
 * Examples
 
-  To provide you with better understanding of some usages of the Plugin Name,
+  To provide you with better understanding of some usages of the maven-download-plugin,
   you can take a look into the following examples:
 
-  * {{{examples/artifact.html}Downloading an artifact from repository}}
+  * {{{examples/artifact_no_pom.html}Downloading an artifact from repository without pom.}}
 
