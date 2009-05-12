@@ -1,17 +1,25 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	
+
 	<!-- Build description -->
 	<groupId>com.googlecode</groupId>
 	<artifactId>maven-download-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
 	<version>0.1-SNAPSHOT</version>
 	<name>Maven Download Plugin</name>
-	
+
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<configuration>
+					<source>1.5</source>
+					<target>1.5</target>
+				</configuration>
+			</plugin>
 			<plugin>
 				<inherited>false</inherited>
 				<groupId>com.google.code.maven-license-plugin</groupId>
@@ -31,6 +39,16 @@
 					</execution>
 				</executions>
 			</plugin>
+			<plugin>
+				<artifactId>maven-release-plugin</artifactId>
+				<configuration>
+					<!--
+						During release:perform, enable the "release" profile
+					-->
+					<releaseProfiles>release</releaseProfiles>
+					<goals>deploy site:site site:deploy</goals>
+				</configuration>
+			</plugin>
 		</plugins>
 		<extensions>
 			<extension>
@@ -40,7 +58,7 @@
 			</extension>
 		</extensions>
 	</build>
-	
+
 	<!-- Dependencies -->
 	<dependencies>
 		<dependency>
@@ -72,7 +90,7 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-	
+
 	<!-- Reporting -->
 	<reporting>
 		<plugins>
@@ -116,7 +134,7 @@
 					<targetJdk>${jdk}</targetJdk>
 					<minimumTokens>100</minimumTokens>
 					<rulesets>
-                        <!-- Rule sets that come bundled with PMD -->
+						<!-- Rule sets that come bundled with PMD -->
 						<ruleset>/rulesets/basic.xml</ruleset>
 						<ruleset>/rulesets/braces.xml</ruleset>
 						<ruleset>/rulesets/finalizers.xml</ruleset>
