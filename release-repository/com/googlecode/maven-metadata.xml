@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?><metadata>
+  <plugins>
+    <plugin>
+      <name>Maven Download Plugin</name>
+      <prefix>download</prefix>
+      <artifactId>maven-download-plugin</artifactId>
+    </plugin>
+  </plugins>
+</metadata>
