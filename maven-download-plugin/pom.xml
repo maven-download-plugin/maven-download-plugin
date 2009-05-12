@@ -1,12 +1,11 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<!-- Build description -->
 	<groupId>com.googlecode</groupId>
 	<artifactId>maven-download-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
-	<version>0.1-SNAPSHOT</version>
+	<version>0.1</version>
 	<name>Maven Download Plugin</name>
 
 	<!-- Build plugins and extensions -->
@@ -237,12 +236,12 @@
 	</licenses>
 	<scm>
 		<connection>
-			scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/ 
+			scm:svn:http://maven-download-plugin.googlecode.com/svn/tags/maven-download-plugin-0.1 
 		</connection>
 		<developerConnection>
-			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/ 
+			scm:svn:https://maven-download-plugin.googlecode.com/svn/tags/maven-download-plugin-0.1 
 		</developerConnection>
-		<url> http://code.google.com/p/maven-download-plugin/source/browse/ 
+		<url> http://code.google.com/p/maven-download-plugin/source/browse/tags/maven-download-plugin-0.1 
 		</url>
 	</scm>
 	<prerequisites>
