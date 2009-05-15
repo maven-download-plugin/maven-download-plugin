@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<!-- Build description -->
-	<groupId>com.googlecode</groupId>
+	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>maven-download-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
 	<version>0.2-SNAPSHOT</version>
@@ -81,6 +81,11 @@
 			<groupId>commons-io</groupId>
 			<artifactId>commons-io</artifactId>
 			<version>1.4</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient</artifactId>
+			<version>4.0-beta2</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
