@@ -49,7 +49,7 @@ mvn com.googlecode:maven-download-plugin:artifact \
 			-DdependencyDepth=2
 +-------------------------------+
 
- Take a look at the {{{artifact-mojo.html}artifact goal documentation}} for all the plugin options.
+ Take a look at the {{{../artifact-mojo.html}artifact goal documentation}} for all the plugin options.
 
 Using from POM file
  
