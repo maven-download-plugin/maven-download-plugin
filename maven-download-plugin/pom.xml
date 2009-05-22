@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<!-- Build description -->
-	<groupId>com.googlecode</groupId>
+	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>maven-download-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
 	<version>0.1</version>
@@ -187,13 +187,13 @@
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin release repository</name>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/release-repository/</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/release-repository/</url>
 		</repository>
 		<snapshotRepository>
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin snapshot repository</name>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/snapshot-repository/</url>
 		</snapshotRepository>
 		<site>
 			<id>maven-download-plugin</id>
