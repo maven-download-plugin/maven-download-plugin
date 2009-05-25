@@ -93,6 +93,12 @@
 			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.maven.plugin-testing</groupId>
+			<artifactId>maven-plugin-testing-harness</artifactId>
+			<version>1.2</version>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<!-- Reporting -->
@@ -192,13 +198,13 @@
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin release repository</name>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/release-repository/</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/release-repository/</url>
 		</repository>
 		<snapshotRepository>
 			<uniqueVersion>false</uniqueVersion>
 			<id>maven-download-plugin</id>
 			<name>Maven download plugin snapshot repository</name>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/trunk/snapshot-repository/</url>
+			<url>dav:https://maven-download-plugin.googlecode.com/svn/snapshot-repository/</url>
 		</snapshotRepository>
 		<site>
 			<id>maven-download-plugin</id>
@@ -241,12 +247,12 @@
 	</licenses>
 	<scm>
 		<connection>
-			scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/ 
+			scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/maven-download-plugin/
 		</connection>
 		<developerConnection>
-			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/ 
+			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/maven-download-plugin/
 		</developerConnection>
-		<url> http://code.google.com/p/maven-download-plugin/source/browse/ 
+		<url> http://code.google.com/p/maven-download-plugin/source/browse/#svn/trunk/maven-download-plugin 
 		</url>
 	</scm>
 	<prerequisites>

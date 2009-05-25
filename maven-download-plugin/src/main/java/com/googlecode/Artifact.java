@@ -95,6 +95,13 @@ public class Artifact extends AbstractMojo {
 	 *            default-value="${project.build.directory}"
 	 */
 	private File outputDirectory;
+	
+	/**
+	  * Will set the output file name to the specified name.  Valid only when the dependency depth
+	  * is set to 0.
+	  * @parameter expression="${outputFileName}"
+	  */
+	private String outputFileName;
 
 	/**
 	 * The dependency depth to query. Will try to fetch the artifact for as much
@@ -103,6 +110,9 @@ public class Artifact extends AbstractMojo {
 	 * @parameter expression="${dependencyDepth}" default-value=0
 	 */
 	private long dependencyDepth;
+	
+	/** @parameter expression="${project.remoteArtifactRepositories}" */
+	private List remoteRepositories;
 
 	/** @component */
 	private ArtifactFactory artifactFactory;
@@ -119,9 +129,6 @@ public class Artifact extends AbstractMojo {
 	/** @parameter expression="${localRepository}" */
 	private ArtifactRepository localRepository;
 
-	/** @parameter expression="${project.remoteArtifactRepositories}" */
-	private List remoteRepositories;
-	
 	private final Set<org.apache.maven.artifact.Artifact> artifactToCopy = new HashSet<org.apache.maven.artifact.Artifact>();
 
 	/**
@@ -130,6 +137,9 @@ public class Artifact extends AbstractMojo {
 	 * @see org.apache.maven.plugin.Mojo#execute()
 	 */
 	public void execute() throws MojoExecutionException, MojoFailureException {
+		if(this.dependencyDepth > 0 && this.outputFileName != null){
+			throw new MojoFailureException("Cannot have a dependency depth higher than 0 and an outputFileName");
+		}
 		org.apache.maven.artifact.Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
 		downloadAndAddArtifact(artifact, dependencyDepth);
 		for(org.apache.maven.artifact.Artifact copy : this.artifactToCopy){
@@ -193,7 +203,13 @@ public class Artifact extends AbstractMojo {
 		if (toCopy != null && toCopy.exists() && toCopy.isFile()) {
 			try {
 				getLog().info("Copying file " + toCopy.getName() + " to directory " + outputDirectory);
-				FileUtils.copyFileToDirectory(toCopy, outputDirectory);
+				File outputFile = null;
+				if(this.outputFileName == null){
+					outputFile = new File(outputDirectory, toCopy.getName());
+				}else{
+					outputFile = new File(outputDirectory, this.outputFileName);
+				}
+				FileUtils.copyFile(toCopy, outputFile);
 			} catch (IOException e) {
 				getLog().debug("Error while copying file", e);
 				throw new MojoFailureException("Error copying the file : " + e.getMessage());
