@@ -8,6 +8,13 @@
 	<version>0.2-SNAPSHOT</version>
 	<name>Maven Download Plugin</name>
 	
+	<!-- See https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide -->
+	<parent>
+		<groupId>org.sonatype.oss</groupId>
+		<artifactId>oss-parent</artifactId>
+		<version>7</version>
+	</parent>
+	
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
@@ -211,21 +218,9 @@
 		</plugins>
 	</reporting>
 	
-	<!-- Distribution Management -->
-	
+	<!-- Distribution Management,
+	see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide -->
 	<distributionManagement>
-		<repository>
-			<uniqueVersion>false</uniqueVersion>
-			<id>maven-download-plugin</id>
-			<name>Maven download plugin release repository</name>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/release-repository/</url>
-		</repository>
-		<snapshotRepository>
-			<uniqueVersion>false</uniqueVersion>
-			<id>maven-download-plugin</id>
-			<name>Maven download plugin snapshot repository</name>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/snapshot-repository/</url>
-		</snapshotRepository>
 		<site>
 			<id>maven-download-plugin</id>
 			<url>dav:https://maven-download-plugin.googlecode.com/svn/site</url>
