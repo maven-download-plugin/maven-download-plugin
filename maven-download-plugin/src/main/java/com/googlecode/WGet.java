@@ -102,7 +102,7 @@ public class WGet extends AbstractMojo{
 	
 	/**
 	 * The directory to use as a cache. Default is ${local-repo}/.cache/maven-download-plugin
-	 * @parameter
+	 * @parameter expression=${download.cache.directory}
 	 */
 	private File cacheDirectory;
 	
