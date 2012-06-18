@@ -166,9 +166,8 @@ public class WGet extends AbstractMojo{
 					getLog().info("Got from cache: " + cached.getAbsolutePath());
 					FileUtils.copyFile(cached, outputFile);
 				} else {
-					int nbTries = 0;
 					boolean done = false;
-					while (!done && nbTries < retries) {
+					while (!done && this.retries > 0) {
 						try {
 							httpGet(this.url, outputFile);
 							if (this.md5 != null) {
@@ -180,7 +179,10 @@ public class WGet extends AbstractMojo{
 							done = true;
 						} catch (Exception ex) {
 							getLog().warn("Could not get content", ex);
-							nbTries++;
+							this.retries--;
+							if (this.retries > 0) {
+								getLog().warn("Retrying (" + this.retries + " more)");
+							}
 						}
 					}
 					if (!done) {
