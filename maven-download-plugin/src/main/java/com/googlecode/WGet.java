@@ -106,6 +106,12 @@ public class WGet extends AbstractMojo{
 	 */
 	private File cacheDirectory;
 	
+	/**
+	 * Whether to skip execution of Mojo
+	 * @parameter expression="${download.plugin.skip}" default-value="false"
+	 */
+	private boolean skip;
+	
 	 /**
      * @parameter default-value="${session}"
      */
@@ -124,6 +130,11 @@ public class WGet extends AbstractMojo{
 	  * @throws MojoFailureException if an error is occuring in this mojo.
 	  */
 	public void execute() throws MojoExecutionException, MojoFailureException {
+		if (this.skip) {
+			getLog().info("maven-download-plugin:wget skipped");
+			return;
+		}
+		
 		if (retries < 1) {
 			throw new MojoFailureException("retries must be at least 1");
 		}
