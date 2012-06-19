@@ -34,7 +34,6 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.codehaus.plexus.archiver.zip.ZipUnArchiver;
-import org.omg.PortableInterceptor.INACTIVE;
 
 /**
   * Will download a file from a web site using the standard HTTP protocol.
@@ -50,23 +49,23 @@ public class WGet extends AbstractMojo{
 	
 	/**
 	  * Represent the URL to fetch information from.
-	  * @parameter expression="${url}" 
+	  * @parameter expression="${download.url}" 
 	  * @required
 	  */
 	private String url;
 	
 	/**
 	  * Represent the file name to use as output value. If not set, will use last segment of "url"
-	  * @parameter expression="${outputFileName}"
+	  * @parameter expression="${download.outputFileName}"
 	  */
 	private String outputFileName;
 	
 	/**
 	  * Represent the directory where the file should be downloaded.
-	  * @parameter expression="${targetDirectory}"  default-value="${project.build.directory}"
+	  * @parameter expression="${download.outputDirectory}"  default-value="${project.build.directory}"
 	  * @required
 	  */
-	private File targetDirectory;
+	private File outputDirectory;
 	
 	/**
 	 * The md5 of the file. If set, file signature will be compared to this signature
@@ -152,8 +151,8 @@ public class WGet extends AbstractMojo{
 		}
 		getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
 		DownloadCache cache = new DownloadCache(this.cacheDirectory);
-		this.targetDirectory.mkdirs();
-		File outputFile = new File(this.targetDirectory, this.outputFileName);
+		this.outputDirectory.mkdirs();
+		File outputFile = new File(this.outputDirectory, this.outputFileName);
 
 		// DO
 		try {
@@ -193,7 +192,7 @@ public class WGet extends AbstractMojo{
 			cache.install(this.url, outputFile, this.md5, this.sha1);
 			if (this.unpack) {
 				this.zipUnArchiver.setSourceFile(outputFile);
-				this.zipUnArchiver.setDestDirectory(this.targetDirectory);
+				this.zipUnArchiver.setDestDirectory(this.outputDirectory);
 				this.zipUnArchiver.extract();
 				outputFile.delete();
 			}
