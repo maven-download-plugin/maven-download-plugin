@@ -33,6 +33,8 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.codehaus.plexus.archiver.UnArchiver;
+import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.zip.ZipUnArchiver;
 
 /**
@@ -101,7 +103,7 @@ public class WGet extends AbstractMojo{
 	
 	/**
 	 * The directory to use as a cache. Default is ${local-repo}/.cache/maven-download-plugin
-	 * @parameter expression=${download.cache.directory}
+	 * @parameter expression="${download.cache.directory}"
 	 */
 	private File cacheDirectory;
 	
@@ -117,11 +119,11 @@ public class WGet extends AbstractMojo{
     private MavenSession session;
     
     /**
-    * The Zip unarchiver.
+    * To look up Archiver/UnArchiver implementation
 	*
-	* @component role="org.codehaus.plexus.archiver.UnArchiver" roleHint="zip"
+	* @component
 	*/
-	private ZipUnArchiver zipUnArchiver;
+	private ArchiverManager archiverManager;
 	
 	/**
 	  * Method call whent he mojo is executed for the first time.
@@ -191,9 +193,10 @@ public class WGet extends AbstractMojo{
 			}
 			cache.install(this.url, outputFile, this.md5, this.sha1);
 			if (this.unpack) {
-				this.zipUnArchiver.setSourceFile(outputFile);
-				this.zipUnArchiver.setDestDirectory(this.outputDirectory);
-				this.zipUnArchiver.extract();
+				UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
+				unarchiver.setSourceFile(outputFile);
+				unarchiver.setDestDirectory(this.outputDirectory);
+				unarchiver.extract();
 				outputFile.delete();
 			}
 		} catch (Exception ex) {
