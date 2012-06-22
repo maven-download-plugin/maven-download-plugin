@@ -16,26 +16,19 @@
 package com.googlecode;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URL;
 import java.security.MessageDigest;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.wagon.Wagon;
+import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
-import org.codehaus.plexus.archiver.zip.ZipUnArchiver;
 
 /**
   * Will download a file from a web site using the standard HTTP protocol.
@@ -126,6 +119,13 @@ public class WGet extends AbstractMojo{
 	private ArchiverManager archiverManager;
 	
 	/**
+	 * For transfers
+	 * 
+	 * @component
+	 */
+	private WagonManager wagonManager;
+	
+	/**
 	  * Method call whent he mojo is executed for the first time.
 	  * @throws MojoExecutionException if an error is occuring in this mojo.
 	  * @throws MojoFailureException if an error is occuring in this mojo.
@@ -170,7 +170,7 @@ public class WGet extends AbstractMojo{
 					boolean done = false;
 					while (!done && this.retries > 0) {
 						try {
-							httpGet(this.url, outputFile);
+							doGet(outputFile);
 							if (this.md5 != null) {
 								SignatureUtils.verifySignature(outputFile, this.md5, MessageDigest.getInstance("MD5"));
 							}
@@ -204,60 +204,19 @@ public class WGet extends AbstractMojo{
 		}
 	}
 
-//	private static void unzip(File outputFile, File targetDirectory)	throws Exception {
-//		new ZipUnArchiver().
-//		byte[] buf = new byte[1024];
-//		ZipInputStream zinstream = new ZipInputStream(new FileInputStream(outputFile));
-//		ZipEntry zentry = zinstream.getNextEntry();
-//		while (zentry != null) {
-//			String entryName = zentry.getName();
-//			File targetFile = new File(targetDirectory, entryName);
-//			if (!targetFile.getParentFile().isDirectory()) {
-//				targetFile.getParentFile().mkdirs();
-//			}
-//			FileOutputStream outstream = new FileOutputStream(targetFile);
-//			int n;
-//
-//			while ((n = zinstream.read(buf, 0, 1024)) > -1) {
-//				outstream.write(buf, 0, n);
-//
-//			}
-//			outstream.close();
-//			zinstream.closeEntry();
-//			zentry = zinstream.getNextEntry();
-//		}
-//		zinstream.close();
-//	}
-
-	private static void httpGet(String url, File outputFile) throws MojoExecutionException, MojoFailureException {
-		HttpClient httpclient = new DefaultHttpClient();
-		HttpGet httpget = new HttpGet(url); 
-		try {
-			HttpResponse response = httpclient.execute(httpget);
-			HttpEntity entity = response.getEntity();
-			// If the response does not enclose an entity, there is no need
-			// to worry about connection release
-			if (entity != null) {
-				InputStream inStream = entity.getContent();
-				try{
-					OutputStream outStream = FileUtils.openOutputStream(outputFile);
-					IOUtils.copy(inStream, outStream);
-					outStream.close();
-				}finally{
-					// Closing the input stream will trigger connection release
-					inStream.close();
-				}
-			}
-		} catch (IOException ex) {
-			// In case of an IOException the connection will be released
-			// back to the connection manager automatically
-			throw new MojoExecutionException("Error while copying value.", ex);
-		} catch (RuntimeException ex) {
-			// In case of an unexpected exception you may want to abort
-			// the HTTP request in order to shut down the underlying 
-			// connection and release it back to the connection manager.
-			httpget.abort();
-			throw new MojoFailureException("Interuption caused cancelled download.");
-		}
+	private void doGet(File outputFile) throws Exception {
+		String[] segments = this.url.split("/");
+		String file = segments[segments.length - 1];
+		String repoUrl = this.url.substring(0, this.url.length() - file.length());
+		Repository repository = new Repository(repoUrl, repoUrl);
+		
+		Wagon wagon = this.wagonManager.getWagon(repository.getProtocol());
+		// TODO: this should be retrieved from wagonManager
+		com.googlecode.ConsoleDownloadMonitor downloadMonitor = new com.googlecode.ConsoleDownloadMonitor();
+		wagon.addTransferListener(downloadMonitor);
+		wagon.connect(repository);
+		wagon.get(file, outputFile);
+		wagon.disconnect();
+		wagon.removeTransferListener(downloadMonitor);
 	}
 }
