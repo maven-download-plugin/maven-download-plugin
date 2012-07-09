@@ -5,7 +5,7 @@
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>maven-download-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.1.0-SNAPSHOT</version>
 	<name>Maven Download Plugin</name>
 	
 	<!-- See https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide -->
@@ -270,12 +270,12 @@
 	</licenses>
 	<scm>
 		<connection>
-			scm:svn:http://maven-download-plugin.googlecode.com/svn/trunk/maven-download-plugin/
+			scm:svn:http://maven-download-plugin.googlecode.com/svn/tags/1.0.0
 		</connection>
 		<developerConnection>
-			scm:svn:https://maven-download-plugin.googlecode.com/svn/trunk/maven-download-plugin/
+			scm:svn:https://maven-download-plugin.googlecode.com/svn/tags/1.0.0
 		</developerConnection>
-		<url> http://code.google.com/p/maven-download-plugin/source/browse/#svn/trunk/maven-download-plugin 
+		<url> http://code.google.com/p/maven-download-plugin/source/browse/#svn/tags/1.0.0 
 		</url>
 	</scm>
 	<prerequisites>
