@@ -55,7 +55,9 @@ It provides caching and signature verification.
 </plugin>
 ```
 
-# Help
+## Help
+
+### Maven help
 
 To get basic plugin help, type in the command : 
 ```
@@ -66,6 +68,18 @@ To get a more detailed help, type command :
 ```
 mvn help:describe -Dplugin=com.googlecode.maven-download-plugin:maven-download-plugin -Ddetail
 ```
+### Generated documentation
 
-See also [generated documentation pages](https://raw.github.com/mickaelistria/maven-download-plugin/docsite/docsite/1.0.0/index.html).
+See also generated documentation pages [for 1.0.0](https://raw.github.com/mickaelistria/maven-download-plugin/docsite/docsite/1.0.0/index.html) and [for snapshot](https://raw.github.com/mickaelistria/maven-download-plugin/docsite/docsite/snapshot/index.html).
 
+### Mailing-list
+
+See https://groups.google.com/forum/?fromgroups#!forum/maven-download-plugin
+
+### Issue Tracker and wikis...
+
+Are maintained at GitHub (links above).
+
+## Other links
+
+Former project page at Google Code: http://code.google.com/p/maven-download-plugin/
