@@ -82,4 +82,6 @@ Are maintained at GitHub (links above).
 
 ## Other links
 
+Project metrics on Ohloh: [![Ohloh](https://www.ohloh.net/p/maven-download-plugin/widgets/project_partner_badge.gif)](https://www.ohloh.net/p/maven-download-plugin)
+
 Former project page at Google Code: http://code.google.com/p/maven-download-plugin/
