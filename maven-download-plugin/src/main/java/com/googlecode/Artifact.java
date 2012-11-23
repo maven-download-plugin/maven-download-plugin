@@ -36,23 +36,25 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.artifact.InvalidDependencyVersionException;
+import org.codehaus.plexus.archiver.UnArchiver;
+import org.codehaus.plexus.archiver.manager.ArchiverManager;
 
 /**
  * This mojo is designed to download a maven artifact from the repository and
  * download them in the specified path. The maven artifact downloaded can also
  * download it's dependency or not, based on a parameter.
- * 
+ *
  * @goal artifact
  * @phase process-resources
  * @requiresProject false
- * 
+ *
  * @author Marc-Andre Houle
- * 
+ *
  */
 public class Artifact extends AbstractMojo {
 	/**
 	 * The artifact Id of the file to download.
-	 * 
+	 *
 	 * @parameter expression="${artifactId}"
 	 * @required
 	 */
@@ -60,7 +62,7 @@ public class Artifact extends AbstractMojo {
 
 	/**
 	 * The group Id of the file to download.
-	 * 
+	 *
 	 * @parameter expression="${groupId}"
 	 * @required
 	 */
@@ -68,7 +70,7 @@ public class Artifact extends AbstractMojo {
 
 	/**
 	 * The version of the file to download.
-	 * 
+	 *
 	 * @parameter expression="${version}"
 	 * @required
 	 */
@@ -76,26 +78,26 @@ public class Artifact extends AbstractMojo {
 
 	/**
 	 * The type of artifact to download.
-	 * 
+	 *
 	 * @parameter expression="${type}" default-value=jar
 	 */
 	private String type;
 
 	/**
 	 * The classifier of artifact to download.
-	 * 
+	 *
 	 * @parameter expression="${classifier}"
 	 */
 	private String classifier;
 
 	/**
 	 * Location of the file.
-	 * 
+	 *
 	 * @parameter expression="${outputDirectory}"
 	 *            default-value="${project.build.directory}"
 	 */
 	private File outputDirectory;
-	
+
 	/**
 	  * Will set the output file name to the specified name.  Valid only when the dependency depth
 	  * is set to 0.
@@ -104,13 +106,19 @@ public class Artifact extends AbstractMojo {
 	private String outputFileName;
 
 	/**
+	 * Whether to unpack the artifact
+	 * @parameter expression="${unpack}" default-value="false"
+	 */
+	private boolean unpack;
+
+	/**
 	 * The dependency depth to query. Will try to fetch the artifact for as much
 	 * as the number of dependency specified.
-	 * 
+	 *
 	 * @parameter expression="${dependencyDepth}" default-value=0
 	 */
 	private long dependencyDepth;
-	
+
 	/** @parameter expression="${project.remoteArtifactRepositories}" */
 	private List remoteRepositories;
 
@@ -126,6 +134,9 @@ public class Artifact extends AbstractMojo {
 	/** @component */
 	private MavenProjectBuilder mavenProjectBuilder;
 
+	/** @component */
+	private ArchiverManager archiverManager;
+
 	/** @parameter expression="${localRepository}" */
 	private ArtifactRepository localRepository;
 
@@ -133,7 +144,7 @@ public class Artifact extends AbstractMojo {
 
 	/**
 	 * Will download the specified artifact in the specified directory.
-	 * 
+	 *
 	 * @see org.apache.maven.plugin.Mojo#execute()
 	 */
 	public void execute() throws MojoExecutionException, MojoFailureException {
@@ -143,14 +154,18 @@ public class Artifact extends AbstractMojo {
 		org.apache.maven.artifact.Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
 		downloadAndAddArtifact(artifact, dependencyDepth);
 		for(org.apache.maven.artifact.Artifact copy : this.artifactToCopy){
-			this.copyFileToDirectory(copy);
+			if (this.unpack) {
+				this.unpackFileToDirectory(copy);
+			} else {
+				this.copyFileToDirectory(copy);
+			}
 		}
 	}
 
 	/**
 	 * Download the artifact when possible and copy it to the target directory
 	 * and will fetch the dependency until the specified depth is reached.
-	 * 
+	 *
 	 * @param artifact
 	 *            The artifact to download and set.
 	 * @param dependencyDepth2
@@ -172,7 +187,7 @@ public class Artifact extends AbstractMojo {
 	/**
 	 * Will check if the artifact is in the local repository and download it if
 	 * it is not.
-	 * 
+	 *
 	 * @param artifact
 	 *            The artifact to check if it is present in the local directory.
 	 * @throws MojoFailureException
@@ -192,7 +207,7 @@ public class Artifact extends AbstractMojo {
 
 	/**
 	 * Will copy the specified artifact into the output directory.
-	 * 
+	 *
 	 * @param artifact
 	 *            The artifact already resolved to be copied.
 	 * @throws MojoFailureException
@@ -219,10 +234,24 @@ public class Artifact extends AbstractMojo {
 		}
 	}
 
+	private void unpackFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoExecutionException {
+		File toUnpack = artifact.getFile();
+		if (toUnpack != null && toUnpack.exists() && toUnpack.isFile()) {
+			try {
+				UnArchiver unarchiver = this.archiverManager.getUnArchiver(toUnpack);
+				unarchiver.setSourceFile(toUnpack);
+				unarchiver.setDestDirectory(this.outputDirectory);
+				unarchiver.extract();
+			} catch (Exception ex) {
+				throw new MojoExecutionException("Issue while unarchiving", ex);
+			}
+		}
+	}
+
 	/**
 	 * Will fetch a list of all the transitive dependencies for an artifact and
 	 * return a set of those artifacts.
-	 * 
+	 *
 	 * @param artifact
 	 *            The artifact for which transitive dependencies need to be
 	 *            downloaded.
