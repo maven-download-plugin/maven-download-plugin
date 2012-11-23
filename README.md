@@ -70,7 +70,7 @@ mvn help:describe -Dplugin=com.googlecode.maven-download-plugin:maven-download-p
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.0.0](https://raw.github.com/mickaelistria/maven-download-plugin/docsite/docsite/1.0.0/index.html) and [for snapshot](https://raw.github.com/mickaelistria/maven-download-plugin/docsite/docsite/snapshot/index.html).
+See also generated documentation pages [for 1.0.0](http://mickaelistria.github.com/maven-download-plugin/docsite/1.0.0/) and [for snapshot](http://mickaelistria.github.com/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
