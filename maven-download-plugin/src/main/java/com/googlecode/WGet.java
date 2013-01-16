@@ -15,18 +15,33 @@
  */
 package com.googlecode;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.wagon.Wagon;
-import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 
@@ -42,6 +57,22 @@ import org.codehaus.plexus.archiver.manager.ArchiverManager;
 
 public class WGet extends AbstractMojo{
 	
+	/**
+	 * Codes coming from wikipedia (https://en.wikipedia.org/wiki/HTTP_codes)
+	 */
+	private static final List<Integer> ACCEPTED_HTTP_CODES = Arrays.asList(
+					200,
+					201,
+					202,
+					203,
+					204,
+					205,
+					206,
+					207,
+					208,
+					226,
+					230);
+
 	/**
 	  * Represent the URL to fetch information from.
 	  * @parameter expression="${download.url}" 
@@ -125,6 +156,30 @@ public class WGet extends AbstractMojo{
 	 */
 	private WagonManager wagonManager;
 	
+	private HttpClient client = new DefaultHttpClient();
+	
+	/**
+	 * Map of HTTP parameters to be used to download content. These properties are to be given as
+	 * <pre> 
+	 * <httpParameters>
+	 * 	<aParameterName>aParameterValue</aParameterName>
+	 * </httpParameters>
+	 * </pre>
+	 * @parameter expression=${download.httpParameters}
+	 */
+	private Map<String, String> parameters = new HashMap<String, String>();
+	
+	/**
+	 * Map of HTTP headers to be used to download content. These properties are to be given as
+	 * <pre> 
+	 * <httpHeaders>
+	 * 	<aHeaderName>aParameterValue</aHeaderName>
+	 * </httpHeaders>
+	 * </pre>
+	 * @parameter expression=${download.httpHeaders}
+	 */
+	private Map<String, String> headers = new HashMap<String, String>();
+	
 	/**
 	  * Method call whent he mojo is executed for the first time.
 	  * @throws MojoExecutionException if an error is occuring in this mojo.
@@ -168,23 +223,9 @@ public class WGet extends AbstractMojo{
 					FileUtils.copyFile(cached, outputFile);
 				} else {
 					boolean done = false;
+					URL downloadURL = new URL(url);
 					while (!done && this.retries > 0) {
-						try {
-							doGet(outputFile);
-							if (this.md5 != null) {
-								SignatureUtils.verifySignature(outputFile, this.md5, MessageDigest.getInstance("MD5"));
-							}
-							if (this.sha1 != null) {
-								SignatureUtils.verifySignature(outputFile, this.sha1, MessageDigest.getInstance("SHA1"));
-							}
-							done = true;
-						} catch (Exception ex) {
-							getLog().warn("Could not get content", ex);
-							this.retries--;
-							if (this.retries > 0) {
-								getLog().warn("Retrying (" + this.retries + " more)");
-							}
-						}
+						done = downloadAndValidate(downloadURL, outputFile, parameters, headers, md5, sha1);
 					}
 					if (!done) {
 						throw new MojoFailureException("Could not get content");
@@ -204,19 +245,113 @@ public class WGet extends AbstractMojo{
 		}
 	}
 
-	private void doGet(File outputFile) throws Exception {
-		String[] segments = this.url.split("/");
-		String file = segments[segments.length - 1];
-		String repoUrl = this.url.substring(0, this.url.length() - file.length());
-		Repository repository = new Repository(repoUrl, repoUrl);
-		
-		Wagon wagon = this.wagonManager.getWagon(repository.getProtocol());
-		// TODO: this should be retrieved from wagonManager
-		com.googlecode.ConsoleDownloadMonitor downloadMonitor = new com.googlecode.ConsoleDownloadMonitor();
-		wagon.addTransferListener(downloadMonitor);
-		wagon.connect(repository);
-		wagon.get(file, outputFile);
-		wagon.disconnect();
-		wagon.removeTransferListener(downloadMonitor);
+	/**
+	 * Download the content of source to output file and validate it (if either md5 or sha1 is non null
+	 * @param source source url to dowload content from
+	 * @param outputFile output file to download content to
+	 * @param parameters map of http parameters to send
+	 * @param headers http headers used for that request
+	 * @param md5 an md5 to validate the downloaded data. Can be null.
+	 * @param sha1 a sh1 to validate the downloaded data. Can be null.
+	 * @return true if something was downloaded without any exception, false elsewhen.
+	 */
+	private boolean downloadAndValidate(URL source, File outputFile, Map<String, String> parameters, Map<String, String> headers, String md5, String sha1) {
+		try {
+			doGet(source, outputFile, parameters, headers);
+			if (this.md5 != null) {
+				SignatureUtils.verifySignature(outputFile, this.md5, MessageDigest.getInstance("MD5"));
+			}
+			if (this.sha1 != null) {
+				SignatureUtils.verifySignature(outputFile, this.sha1, MessageDigest.getInstance("SHA1"));
+			}
+			return true;
+		} catch (Exception ex) {
+			getLog().warn("Could not get content", ex);
+			this.retries--;
+			if (this.retries > 0) {
+				getLog().warn("Retrying (" + this.retries + " more)");
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Perform the get operation and outputs a bunch of debug messages
+	 * @param source the source to download data from
+	 * @param outputFile the output destination
+	 * @param parameters http parameters used for that request
+	 * @param headers http headers used for that request
+	 * @throws Exception
+	 */
+	private void doGet(URL source, File outputFile, Map<String, String> parameters, Map<String, String> headers) throws Exception {
+		HttpGet getRequest = new HttpGet(source.toURI());
+		// putting parameters in game
+		for(Map.Entry<String, String> p : parameters.entrySet()) {
+			getRequest.getParams().setParameter(p.getKey(), p.getValue());
+		}
+		// and headers next to them
+		for(Map.Entry<String, String> h : headers.entrySet()) {
+			getRequest.addHeader(h.getKey(), h.getValue());
+		}
+		if(getLog().isDebugEnabled()) {
+			StringBuilder sOut = new StringBuilder();
+			sOut.append("running ").append(getRequest).append("\n");
+			sOut.append("query headers :\n").append(appendHeaders(getRequest.getAllHeaders()));
+			sOut.append("query parameters can't be obtained, sorry\n");
+			getLog().debug(sOut);
+		}
+		HttpResponse response = client.execute(getRequest);
+		// Put some more log info about response before to consume content
+		if(getLog().isDebugEnabled()) {
+			StringBuilder sOut = new StringBuilder("query executed with result\n");
+			StatusLine status = response.getStatusLine();
+			sOut.append(status.getProtocolVersion().toString()).append("\t").append(status.getStatusCode()).append(" ").append(status.getReasonPhrase()).append("\n");
+			sOut.append("response headers :\n");
+			sOut.append(appendHeaders(response.getAllHeaders()));
+			getLog().debug(sOut);
+		}
+		// now make sure result was OK (if not an exception will be thrown
+		if(ACCEPTED_HTTP_CODES.contains(response.getStatusLine().getStatusCode())) {
+			HttpEntity entity = response.getEntity();
+			if(getLog().isDebugEnabled()) {
+				StringBuilder sOut = new StringBuilder("query entity content is\n");
+				sOut.append(appendHeaders(new Header[] {entity.getContentType(), entity.getContentEncoding()}));
+			}
+			// Now read entity content
+			InputStream stream = entity.getContent();
+			BufferedInputStream bufferedInput = new BufferedInputStream(stream);
+			outputFile.mkdirs();
+			BufferedOutputStream bufferedOutput = new BufferedOutputStream(new FileOutputStream(outputFile));
+			pipe(bufferedInput, bufferedOutput);
+		} else {
+			throw new UnsupportedOperationException("server sent status code "+response.getStatusLine().getStatusCode()+" which we do not support");
+		}
+	}
+
+	/**
+	 * Pipe input buffer to output one and close both after operation.
+	 * @param bufferedInput
+	 * @param bufferedOutput
+	 * @throws IOException
+	 */
+	private void pipe(BufferedInputStream bufferedInput, BufferedOutputStream bufferedOutput) throws IOException {
+		try {
+			byte[] buffer = new byte[1024];
+			int readBytes = 0;
+			while((readBytes = bufferedInput.read(buffer))>0) {
+				bufferedOutput.write(buffer, 0, readBytes);
+			}
+		} finally {
+			bufferedInput.close();
+			bufferedOutput.close();
+		}
+	}
+
+	private StringBuilder appendHeaders(Header[] headers) {
+		StringBuilder sOut = new StringBuilder();
+		for(Header h : headers) {
+			sOut.append(h).append("\n");
+		}
+		return sOut;
 	}
 }
