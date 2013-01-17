@@ -16,20 +16,21 @@
 package com.googlecode;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.io.CopyUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -37,6 +38,7 @@ import org.apache.http.StatusLine;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -56,7 +58,7 @@ import org.codehaus.plexus.archiver.manager.ArchiverManager;
   */
 
 public class WGet extends AbstractMojo{
-	
+
 	/**
 	 * Codes coming from wikipedia (https://en.wikipedia.org/wiki/HTTP_codes)
 	 */
@@ -121,9 +123,16 @@ public class WGet extends AbstractMojo{
 	
 	/**
 	 * Download file without polling cache
-	 * @parameter default-value="false"
+	 * @parameter expression="${download.skipCache}" default-value="false"
 	 */
 	private boolean skipCache;
+	
+	/**
+	 * Download file even if it already exists at target location
+	 * @parameter expression="${download.force}" default-value="false"
+	 */
+	private boolean forceDownload;
+
 	
 	/**
 	 * The directory to use as a cache. Default is ${local-repo}/.cache/maven-download-plugin
@@ -156,8 +165,6 @@ public class WGet extends AbstractMojo{
 	 */
 	private WagonManager wagonManager;
 	
-	private HttpClient client = new DefaultHttpClient();
-	
 	/**
 	 * Map of HTTP parameters to be used to download content. These properties are to be given as
 	 * <pre> 
@@ -165,7 +172,7 @@ public class WGet extends AbstractMojo{
 	 * 	<aParameterName>aParameterValue</aParameterName>
 	 * </httpParameters>
 	 * </pre>
-	 * @parameter expression=${download.httpParameters}
+	 * @parameter
 	 */
 	private Map<String, String> parameters = new HashMap<String, String>();
 	
@@ -176,7 +183,7 @@ public class WGet extends AbstractMojo{
 	 * 	<aHeaderName>aParameterValue</aHeaderName>
 	 * </httpHeaders>
 	 * </pre>
-	 * @parameter expression=${download.httpHeaders}
+	 * @parameter
 	 */
 	private Map<String, String> headers = new HashMap<String, String>();
 	
@@ -208,12 +215,15 @@ public class WGet extends AbstractMojo{
 		}
 		getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
 		DownloadCache cache = new DownloadCache(this.cacheDirectory);
+		// added because elsewhere the output directory creation didn't happened when outputDirectory wasn't specified
+		if(outputDirectory==null)
+			outputDirectory=new File(outputFileName).getParentFile();
 		this.outputDirectory.mkdirs();
 		File outputFile = new File(this.outputDirectory, this.outputFileName);
 
 		// DO
 		try {
-			if (outputFile.exists()) {
+			if (outputFile.exists() && !forceDownload) {
 				// TODO verify last modification date
 				getLog().info("File already exist, skipping");
 			} else {
@@ -224,9 +234,8 @@ public class WGet extends AbstractMojo{
 				} else {
 					boolean done = false;
 					URL downloadURL = new URL(url);
-					while (!done && this.retries > 0) {
-						done = downloadAndValidate(downloadURL, outputFile, parameters, headers, md5, sha1);
-					}
+					// No more need to handcode retry, as HTTPClient natively supports that feature (cool no ?)
+					done = downloadAndValidate(downloadURL, outputFile, retries, parameters, headers, md5, sha1);
 					if (!done) {
 						throw new MojoFailureException("Could not get content");
 					}
@@ -249,15 +258,16 @@ public class WGet extends AbstractMojo{
 	 * Download the content of source to output file and validate it (if either md5 or sha1 is non null
 	 * @param source source url to dowload content from
 	 * @param outputFile output file to download content to
+	 * @param retries 
 	 * @param parameters map of http parameters to send
 	 * @param headers http headers used for that request
 	 * @param md5 an md5 to validate the downloaded data. Can be null.
 	 * @param sha1 a sh1 to validate the downloaded data. Can be null.
 	 * @return true if something was downloaded without any exception, false elsewhen.
 	 */
-	private boolean downloadAndValidate(URL source, File outputFile, Map<String, String> parameters, Map<String, String> headers, String md5, String sha1) {
+	private boolean downloadAndValidate(URL source, File outputFile, int retries, Map<String, String> parameters, Map<String, String> headers, String md5, String sha1) {
 		try {
-			doGet(source, outputFile, parameters, headers);
+			doGet(source, outputFile, parameters, headers, retries);
 			if (this.md5 != null) {
 				SignatureUtils.verifySignature(outputFile, this.md5, MessageDigest.getInstance("MD5"));
 			}
@@ -267,12 +277,8 @@ public class WGet extends AbstractMojo{
 			return true;
 		} catch (Exception ex) {
 			getLog().warn("Could not get content", ex);
-			this.retries--;
-			if (this.retries > 0) {
-				getLog().warn("Retrying (" + this.retries + " more)");
-			}
+			return false;
 		}
-		return false;
 	}
 
 	/**
@@ -281,9 +287,10 @@ public class WGet extends AbstractMojo{
 	 * @param outputFile the output destination
 	 * @param parameters http parameters used for that request
 	 * @param headers http headers used for that request
+	 * @param retries number of times that query will be retried
 	 * @throws Exception
 	 */
-	private void doGet(URL source, File outputFile, Map<String, String> parameters, Map<String, String> headers) throws Exception {
+	private void doGet(URL source, File outputFile, Map<String, String> parameters, Map<String, String> headers, int retries) throws Exception {
 		HttpGet getRequest = new HttpGet(source.toURI());
 		// putting parameters in game
 		for(Map.Entry<String, String> p : parameters.entrySet()) {
@@ -300,6 +307,8 @@ public class WGet extends AbstractMojo{
 			sOut.append("query parameters can't be obtained, sorry\n");
 			getLog().debug(sOut);
 		}
+		// Creating client on-demand to allow easy retry
+		HttpClient client = getHttpClient(retries);
 		HttpResponse response = client.execute(getRequest);
 		// Put some more log info about response before to consume content
 		if(getLog().isDebugEnabled()) {
@@ -320,33 +329,34 @@ public class WGet extends AbstractMojo{
 			// Now read entity content
 			InputStream stream = entity.getContent();
 			BufferedInputStream bufferedInput = new BufferedInputStream(stream);
-			outputFile.mkdirs();
-			BufferedOutputStream bufferedOutput = new BufferedOutputStream(new FileOutputStream(outputFile));
-			pipe(bufferedInput, bufferedOutput);
+			outputFile.createNewFile();
+			FileOutputStream openOutputStream = FileUtils.openOutputStream(outputFile);
+			try {
+				IOUtils.copy(bufferedInput,openOutputStream);
+			} finally {
+				openOutputStream.close();
+			}
 		} else {
 			throw new UnsupportedOperationException("server sent status code "+response.getStatusLine().getStatusCode()+" which we do not support");
 		}
 	}
 
 	/**
-	 * Pipe input buffer to output one and close both after operation.
-	 * @param bufferedInput
-	 * @param bufferedOutput
-	 * @throws IOException
+	 * Construct the http client with the specified number of retries
+	 * @param retries number of times the query will be re-send to server
+	 * @return a working HTTP client
 	 */
-	private void pipe(BufferedInputStream bufferedInput, BufferedOutputStream bufferedOutput) throws IOException {
-		try {
-			byte[] buffer = new byte[1024];
-			int readBytes = 0;
-			while((readBytes = bufferedInput.read(buffer))>0) {
-				bufferedOutput.write(buffer, 0, readBytes);
-			}
-		} finally {
-			bufferedInput.close();
-			bufferedOutput.close();
-		}
+	private HttpClient getHttpClient(final int retries) {
+		DefaultHttpClient returned = new DefaultHttpClient();
+		returned.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(retries, false));
+		return returned;
 	}
 
+	/**
+	 * Append headers to a string, for easier reading
+	 * @param headers
+	 * @return
+	 */
 	private StringBuilder appendHeaders(Header[] headers) {
 		StringBuilder sOut = new StringBuilder();
 		for(Header h : headers) {
