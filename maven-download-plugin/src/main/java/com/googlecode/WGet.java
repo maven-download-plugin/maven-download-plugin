@@ -98,26 +98,26 @@ public class WGet extends AbstractMojo{
 	/**
 	 * The md5 of the file. If set, file signature will be compared to this signature
 	 * and plugin will fail.
-	 * @parameter
+	 * @parameter expression="${download.md5}"
 	 */
 	private String md5;
 	
 	/**
 	 * The sha1 of the file. If set, file signature will be compared to this signature
 	 * and plugin will fail.
-	 * @parameter
+	 * @parameter expression="${download.sha1}"
 	 */
 	private String sha1;
 	
 	/**
 	 * Whether to unpack the file in case it is an archive (.zip)
-	 * @parameter default-value="false"
+	 * @parameter default-value="false" expression="${download.unpack}"
 	 */
 	private boolean unpack;
 	
 	/**
 	 * How many retries for a download
-	 * @parameter default-value="2"
+	 * @parameter default-value="2" expression="${download.retries}"
 	 */
 	private int retries;
 	
@@ -167,22 +167,18 @@ public class WGet extends AbstractMojo{
 	
 	/**
 	 * Map of HTTP parameters to be used to download content. These properties are to be given as
-	 * <pre> 
-	 * <httpParameters>
-	 * 	<aParameterName>aParameterValue</aParameterName>
-	 * </httpParameters>
-	 * </pre>
+	 * &lt;httpParameters&gt;
+	 * 	&lt;aParameterName&gt;aParameterValue&lt;/aParameterName&gt;
+	 * &lt;httpParameters&gt;
 	 * @parameter
 	 */
 	private Map<String, String> parameters = new HashMap<String, String>();
 	
 	/**
 	 * Map of HTTP headers to be used to download content. These properties are to be given as
-	 * <pre> 
-	 * <httpHeaders>
-	 * 	<aHeaderName>aParameterValue</aHeaderName>
-	 * </httpHeaders>
-	 * </pre>
+	 * &lt;httpHeaders&gt;
+	 * 	&lt;aHeaderName&gt;aParameterValue&lt;/aHeaderName&gt;
+	 * &lt;/httpHeaders&gt;
 	 * @parameter
 	 */
 	private Map<String, String> headers = new HashMap<String, String>();
