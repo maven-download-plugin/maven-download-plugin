@@ -17,10 +17,8 @@ package com.googlecode;
 
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.StringWriter;
-import java.io.Writer;
+import java.io.OutputStream;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -28,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.io.CopyUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
@@ -44,6 +41,7 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.wagon.events.TransferEvent;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 
@@ -287,6 +285,7 @@ public class WGet extends AbstractMojo{
 	 * @throws Exception
 	 */
 	private void doGet(URL source, File outputFile, Map<String, String> parameters, Map<String, String> headers, int retries) throws Exception {
+		ConsoleDownloadMonitor monitor = new ConsoleDownloadMonitor();
 		HttpGet getRequest = new HttpGet(source.toURI());
 		// putting parameters in game
 		for(Map.Entry<String, String> p : parameters.entrySet()) {
@@ -305,6 +304,7 @@ public class WGet extends AbstractMojo{
 		}
 		// Creating client on-demand to allow easy retry
 		HttpClient client = getHttpClient(retries);
+		monitor.outputTransferStarted(source.toString(), TransferEvent.REQUEST_GET);
 		HttpResponse response = client.execute(getRequest);
 		// Put some more log info about response before to consume content
 		if(getLog().isDebugEnabled()) {
@@ -326,11 +326,13 @@ public class WGet extends AbstractMojo{
 			InputStream stream = entity.getContent();
 			BufferedInputStream bufferedInput = new BufferedInputStream(stream);
 			outputFile.createNewFile();
-			FileOutputStream openOutputStream = FileUtils.openOutputStream(outputFile);
+			OutputStream openOutputStream = monitor.decorate(FileUtils.openOutputStream(outputFile), entity.getContentLength());
 			try {
 				IOUtils.copy(bufferedInput,openOutputStream);
 			} finally {
+				monitor.outputTransferTerminated(entity.getContentLength(), TransferEvent.REQUEST_GET);
 				openOutputStream.close();
+				bufferedInput.close();
 			}
 		} else {
 			throw new UnsupportedOperationException("server sent status code "+response.getStatusLine().getStatusCode()+" which we do not support");
