@@ -19,6 +19,7 @@ package com.googlecode;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.maven.wagon.WagonConstants;
 import org.apache.maven.wagon.events.TransferEvent;
 import org.apache.maven.wagon.events.TransferListener;
@@ -89,16 +90,9 @@ public class ConsoleDownloadMonitor
 	 */
 	private String getTransferMessage(long alreadyDownloaded, long total) {
 		String message = null;
-        if ( total >= 1024 )
-        {
-            message = ( alreadyDownloaded / 1024 ) + "/" + ( total == WagonConstants.UNKNOWN_LENGTH ? "?" : ( total / 1024 ) + "K" ) +
+		return FileUtils.byteCountToDisplaySize(alreadyDownloaded) + "/" + 
+						( total == WagonConstants.UNKNOWN_LENGTH ? "?" : FileUtils.byteCountToDisplaySize(total) ) +
 			    "\r";
-        }
-        else
-        {
-            message = alreadyDownloaded + "/" + ( total == WagonConstants.UNKNOWN_LENGTH ? "?" : total + "b" ) + "\r";
-        }
-		return message;
 	}
 
     public void transferCompleted( TransferEvent transferEvent )
@@ -117,8 +111,7 @@ public class ConsoleDownloadMonitor
 		if ( contentLength != WagonConstants.UNKNOWN_LENGTH )
         {
 			String type = ( requestType == TransferEvent.REQUEST_PUT ? "uploaded" : "downloaded" );
-            String l = contentLength >= 1024 ? ( contentLength / 1024 ) + "K" : contentLength + "b";
-            System.out.println( l + " " + type );
+            System.out.println( FileUtils.byteCountToDisplaySize(contentLength) + " " + type );
         }
 	}
 
