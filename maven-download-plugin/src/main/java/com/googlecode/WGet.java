@@ -214,7 +214,7 @@ public class WGet extends AbstractMojo{
 		// TODO: this should be retrieved from wagonManager
 		com.googlecode.ConsoleDownloadMonitor downloadMonitor = new com.googlecode.ConsoleDownloadMonitor();
 		wagon.addTransferListener(downloadMonitor);
-		wagon.connect(repository);
+		wagon.connect(repository, this.wagonManager.getProxy(repository.getProtocol()));
 		wagon.get(file, outputFile);
 		wagon.disconnect();
 		wagon.removeTransferListener(downloadMonitor);
