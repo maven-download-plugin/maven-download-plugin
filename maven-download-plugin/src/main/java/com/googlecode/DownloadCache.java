@@ -34,7 +34,7 @@ import org.apache.commons.io.FileUtils;
 public class DownloadCache {
 
 	private static final String INDEX_FILENAME = "index.ser";
-	
+
 	private File basedir;
 	private File indexFile;
 	private Map<String, CachedFileEntry> index;
@@ -50,19 +50,20 @@ public class DownloadCache {
 		if (res == null) {
 			return null;
 		}
-		if (md5 != null && !md5.equals(res.md5)) {
+		File resFile = new File(this.basedir, res.fileName);
+		if (md5 != null && !md5.equals(SignatureUtils.getMD5(resFile))) {
 			return null;
 		}
-		if (sha1 != null && !sha1.equals(res.sha1)) {
+		if (sha1 != null && !md5.equals(SignatureUtils.getSHA1(resFile))) {
 			return null;
 		}
 		return res;
 	}
-	
+
 	/**
 	 * Get a File in the download cache. If no cache for this URL, or
 	 * if expected signatures don't match cached ones, returns null.
-	 * available in cache, 
+	 * available in cache,
 	 * @param url URL of the file
 	 * @param md5 MD5 signature to verify file. Can be null => No check
 	 * @param sha1 Sha1 signature to verify file. Can be null => No check
@@ -90,14 +91,12 @@ public class DownloadCache {
 		}
 		entry = new CachedFileEntry();
 		entry.fileName = outputFile.getName();
-		entry.md5 = md5;
-		entry.sha1 = sha1;
 		this.index.put(url, entry);
 		FileUtils.copyFile(outputFile, new File(this.basedir, entry.fileName));
 		saveIndex();
 	}
-	
-	
+
+
 
 	private void loadIndex() throws Exception {
 		if (this.indexFile.isFile()) {
@@ -108,9 +107,9 @@ public class DownloadCache {
 		} else {
 			this.index = new HashMap<String, CachedFileEntry>();
 		}
-		
+
 	}
-	
+
 	private void saveIndex() throws Exception {
 		if (this.basedir.exists() && !this.basedir.isDirectory()) {
 			throw new Exception("Cannot use " + this.basedir + " as cache directory: file exists");

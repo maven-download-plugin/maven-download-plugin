@@ -21,12 +21,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.apache.commons.codec.binary.Hex;
 import org.apache.maven.plugin.MojoFailureException;
 
 /**
- * 
+ *
  * @author Mickael Istria (Red Hat Inc)
  *
  */
@@ -55,5 +56,15 @@ public class SignatureUtils {
 		String actualDigestHex = new String(Hex.encodeHex(actualDigest));
 		return actualDigestHex;
 	}
+
+	static String getMD5(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+		return computeSignatureAsString(file, MessageDigest.getInstance("MD5"));
+	}
+
+	static String getSHA1(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+		return computeSignatureAsString(file, MessageDigest.getInstance("SHA1"));
+	}
+
+
 
 }
