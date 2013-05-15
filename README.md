@@ -3,6 +3,8 @@ This is a plugin meant to help maven user to download different files on differe
 
 ## Enable 
 
+This Maven plugin should be available on Maven Central. But in case you can't find it on Central for some reason, here is the repository to add to your pom:
+
 ```xml
 <pluginRepository>
 	<id>sonatype-public-repository</id>
@@ -36,7 +38,7 @@ It provides caching and signature verification.
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>maven-download-plugin</artifactId>
-	<version>1.0.0</version>
+	<version>1.1.0</version>
 	<executions>
 		<execution>
 			<id>install-jbpm</id>
@@ -70,7 +72,7 @@ mvn help:describe -Dplugin=com.googlecode.maven-download-plugin:maven-download-p
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.0.0](http://maven-download-plugin.github.com/maven-download-plugin/docsite/1.0.0/) and [for snapshot](http://maven-download-plugin.github.com/maven-download-plugin/docsite/snapshot/).
+See also generated documentation pages [for 1.1.0](http://maven-download-plugin.github.com/maven-download-plugin/docsite/1.1.0/) and [for snapshot](http://maven-download-plugin.github.com/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
