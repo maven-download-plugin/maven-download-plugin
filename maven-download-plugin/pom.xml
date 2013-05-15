@@ -219,11 +219,12 @@
 	</reporting>
 	
 	<!-- Distribution Management,
-	see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide -->
+	see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide
+	and http://maven.apache.org/wagon/wagon-providers/wagon-scm/usage.html -->
 	<distributionManagement>
 		<site>
 			<id>maven-download-plugin</id>
-			<url>dav:https://maven-download-plugin.googlecode.com/svn/site</url>
+			<url>scm:git:ssh://git@github.com/maven-download-plugin/maven-download-plugin.git</url>
 		</site>
 	</distributionManagement>
 	
@@ -235,7 +236,7 @@
 		downloading a maven artifact from the command line. Future version of
 		the plugin could include web download, ftp download, scp download and
 		so on. </description>
-	<url>http://maven-download-plugin.googlecode.com</url>
+	<url>https://github.com/maven-download-plugin/maven-download-plugin</url>
 	<developers>
 		<developer>
 			<id>mhoule</id>
@@ -249,6 +250,8 @@
 		<developer>
 			<id>mistria</id>
 			<name>Mickael Istria (Red Hat Inc.)</name>
+			<organization>JBoss, by Red Hat</organization>
+			<organizationUrl>http://www.jboss.org/tools</organizationUrl>
 			<timezone>+1</timezone>
 			<roles>
 				<role>developer</role>
@@ -258,8 +261,8 @@
 	<inceptionYear>2009</inceptionYear>
 	
 	<issueManagement>
-		<system>Google code</system>
-		<url>http://code.google.com/p/maven-download-plugin/issues/list</url>
+		<system>GitHub</system>
+		<url>https://github.com/maven-download-plugin/maven-download-plugin/issues</url>
 	</issueManagement>
 	<licenses>
 		<license>
@@ -270,20 +273,19 @@
 	</licenses>
 	<scm>
 		<connection>
-			scm:svn:http://maven-download-plugin.googlecode.com/svn/tags/1.0.0
+			scm:git:git://github.com/maven-download-plugin/maven-download-plugin.git
 		</connection>
 		<developerConnection>
-			scm:svn:https://maven-download-plugin.googlecode.com/svn/tags/1.0.0
+			scm:git:ssh://git@github.com/maven-download-plugin/maven-download-plugin.git
 		</developerConnection>
-		<url> http://code.google.com/p/maven-download-plugin/source/browse/#svn/tags/1.0.0 
-		</url>
+		<url>https://github.com/maven-download-plugin/maven-download-plugin</url>
 	</scm>
 	<prerequisites>
 		<maven>2.0</maven>
 	</prerequisites>
 	<organization>
-		<name>Independant</name>
-		<url>http://maven-download-plugin.googlecode.com</url>
+		<name>Open-Source</name>
+		<url>https://github.com/maven-download-plugin/maven-download-plugin</url>
 	</organization>
 	
 </project>
