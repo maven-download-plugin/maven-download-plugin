@@ -3,18 +3,17 @@
 
 	<!-- Build description -->
 	<groupId>com.googlecode.maven-download-plugin</groupId>
-	<artifactId>maven-download-plugin</artifactId>
+	<artifactId>download-maven-plugin</artifactId>
 	<packaging>maven-plugin</packaging>
 	<version>1.2.0-SNAPSHOT</version>
-	<name>Maven Download Plugin</name>
-	
+	<name>Download Plugin for Maven</name>
 	<!-- See https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide -->
 	<parent>
 		<groupId>org.sonatype.oss</groupId>
 		<artifactId>oss-parent</artifactId>
 		<version>7</version>
 	</parent>
-	
+
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
@@ -217,7 +216,7 @@
             </plugin>
 		</plugins>
 	</reporting>
-	
+
 	<!-- Distribution Management,
 	see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide
 	and http://maven.apache.org/wagon/wagon-providers/wagon-scm/usage.html -->
@@ -227,9 +226,9 @@
 			<url>scm:git:ssh://git@github.com/maven-download-plugin/maven-download-plugin.git</url>
 		</site>
 	</distributionManagement>
-	
+
 	<!-- Miscellaneous build properties (SCM, license, issues, etc) -->
-	
+
 	<description> This is a plugin meant to help maven user to download
 		different files on different protocol in part of maven build. For the
 		first implementation, there will only be a goal that will help
@@ -259,7 +258,7 @@
 		</developer>
 	</developers>
 	<inceptionYear>2009</inceptionYear>
-	
+
 	<issueManagement>
 		<system>GitHub</system>
 		<url>https://github.com/maven-download-plugin/maven-download-plugin/issues</url>
@@ -287,5 +286,5 @@
 		<name>Open-Source</name>
 		<url>https://github.com/maven-download-plugin/maven-download-plugin</url>
 	</organization>
-	
+
 </project>
