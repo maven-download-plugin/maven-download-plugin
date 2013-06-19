@@ -1,4 +1,4 @@
-# Maven Download Plugin
+# Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
 
 __WARNING about artifactId__: Until version 1.1, the plugin artifactId used to be _maven-download-plugin_, however Maven conventions makes that this name is not allowed for a plugin which is not part of the Apache Maven project. So starting from version 1.2-SNAPSHOT, the plugin artifactId is _download-maven-plugin_. The following documentation will get updated when releasing download-maven-plugin:1.2.
