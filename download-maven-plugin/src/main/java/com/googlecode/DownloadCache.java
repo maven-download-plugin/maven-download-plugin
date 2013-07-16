@@ -51,6 +51,9 @@ public class DownloadCache {
 			return null;
 		}
 		File resFile = new File(this.basedir, res.fileName);
+		if (!resFile.isFile()) {
+			return null;
+		}
 		if (md5 != null && !md5.equals(SignatureUtils.getMD5(resFile))) {
 			return null;
 		}
