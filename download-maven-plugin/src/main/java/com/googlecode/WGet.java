@@ -15,10 +15,6 @@
  */
 package com.googlecode;
 
-import java.io.File;
-import java.net.URL;
-import java.security.MessageDigest;
-
 import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
@@ -29,6 +25,11 @@ import org.apache.maven.wagon.Wagon;
 import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
+import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
+
+import java.io.File;
+import java.net.URL;
+import java.security.MessageDigest;
 
 /**
   * Will download a file from a web site using the standard HTTP protocol.
@@ -193,18 +194,22 @@ public class WGet extends AbstractMojo{
 			}
 			cache.install(this.url, outputFile, this.md5, this.sha1);
 			if (this.unpack) {
-				UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
-				unarchiver.setSourceFile(outputFile);
-				unarchiver.setDestDirectory(this.outputDirectory);
-				unarchiver.extract();
-				outputFile.delete();
+                unpack(outputFile);
 			}
 		} catch (Exception ex) {
 			throw new MojoExecutionException("IO Error", ex);
 		}
 	}
 
-	private void doGet(File outputFile) throws Exception {
+    private void unpack(File outputFile) throws NoSuchArchiverException {
+        UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
+        unarchiver.setSourceFile(outputFile);
+        unarchiver.setDestDirectory(this.outputDirectory);
+        unarchiver.extract();
+        outputFile.delete();
+    }
+
+    private void doGet(File outputFile) throws Exception {
 		String[] segments = this.url.split("/");
 		String file = segments[segments.length - 1];
 		String repoUrl = this.url.substring(0, this.url.length() - file.length());
