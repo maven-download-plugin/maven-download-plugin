@@ -15,16 +15,12 @@
  */
 package com.googlecode;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import org.apache.commons.io.FileUtils;
+
+import java.io.*;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.apache.commons.io.FileUtils;
 
 /**
  * A class representing a download cache
@@ -57,7 +53,7 @@ public class DownloadCache {
 		if (md5 != null && !md5.equals(SignatureUtils.getMD5(resFile))) {
 			return null;
 		}
-		if (sha1 != null && !md5.equals(SignatureUtils.getSHA1(resFile))) {
+		if (sha1 != null && !sha1.equals(SignatureUtils.getSHA1(resFile))) {
 			return null;
 		}
 		return res;

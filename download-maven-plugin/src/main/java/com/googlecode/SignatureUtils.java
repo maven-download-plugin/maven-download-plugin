@@ -15,16 +15,12 @@
  */
 package com.googlecode;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
 import org.apache.commons.codec.binary.Hex;
 import org.apache.maven.plugin.MojoFailureException;
+
+import java.io.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
  *
@@ -41,7 +37,7 @@ public class SignatureUtils {
 	}
 
 	static String computeSignatureAsString(File file,
-			MessageDigest digest) throws FileNotFoundException, IOException {
+			MessageDigest digest) throws IOException {
 		InputStream fis = new FileInputStream(file);
 		byte[] buffer = new byte[1024];
 		int numRead;
@@ -53,15 +49,14 @@ public class SignatureUtils {
 		} while (numRead != -1);
 		fis.close();
 		byte[] actualDigest = digest.digest();
-		String actualDigestHex = new String(Hex.encodeHex(actualDigest));
-		return actualDigestHex;
+        return new String(Hex.encodeHex(actualDigest));
 	}
 
-	static String getMD5(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+	static String getMD5(File file) throws IOException, NoSuchAlgorithmException {
 		return computeSignatureAsString(file, MessageDigest.getInstance("MD5"));
 	}
 
-	static String getSHA1(File file) throws FileNotFoundException, IOException, NoSuchAlgorithmException {
+	static String getSHA1(File file) throws IOException, NoSuchAlgorithmException {
 		return computeSignatureAsString(file, MessageDigest.getInstance("SHA1"));
 	}
 
