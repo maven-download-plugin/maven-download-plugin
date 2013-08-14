@@ -17,11 +17,12 @@ package com.googlecode;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -224,7 +225,7 @@ public class Artifact extends AbstractMojo {
 				}else{
 					outputFile = new File(outputDirectory, this.outputFileName);
 				}
-				FileUtils.copyFile(toCopy, outputFile);
+                Files.copy(toCopy.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 			} catch (IOException e) {
 				getLog().debug("Error while copying file", e);
 				throw new MojoFailureException("Error copying the file : " + e.getMessage());

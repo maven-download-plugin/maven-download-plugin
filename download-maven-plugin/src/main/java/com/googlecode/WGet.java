@@ -15,7 +15,6 @@
  */
 package com.googlecode;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -29,6 +28,7 @@ import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 
 import java.io.File;
 import java.net.URL;
+import java.nio.file.Files;
 import java.security.MessageDigest;
 
 /**
@@ -211,7 +211,7 @@ public class WGet extends AbstractMojo {
         if (!this.skipCache && cached != null && cached.exists())
         {
           getLog().info("Got from cache: " + cached.getAbsolutePath());
-          FileUtils.copyFile(cached, outputFile);
+          Files.copy(cached.toPath(), outputFile.toPath());
         }
         else
         {

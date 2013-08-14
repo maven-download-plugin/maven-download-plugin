@@ -15,9 +15,12 @@
  */
 package com.googlecode;
 
-import org.apache.commons.io.FileUtils;
+import org.apache.maven.plugin.MojoExecutionException;
 
 import java.io.*;
+import java.nio.channels.FileLock;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,9 +38,16 @@ public class DownloadCache {
 	private File indexFile;
 	private Map<String, CachedFileEntry> index;
 
-	public DownloadCache(File cacheDirectory) {
+	public DownloadCache(File cacheDirectory) throws MojoExecutionException {
 		this.basedir = cacheDirectory;
 		this.indexFile = new File(this.basedir, INDEX_FILENAME);
+
+		if (this.basedir.exists() && !this.basedir.isDirectory()) {
+			throw new MojoExecutionException("Cannot use " + this.basedir + " as cache directory: file exists");
+		}
+		if (!this.basedir.exists()) {
+			this.basedir.mkdirs();
+		}
 	}
 
 	private CachedFileEntry getEntry(String url, String md5, String sha1) throws Exception {
@@ -77,7 +87,6 @@ public class DownloadCache {
 	}
 
 	public void install(String url, File outputFile, String md5, String sha1) throws Exception {
-		loadIndex();
 		if (md5 == null) {
 			md5 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("MD5"));
 		}
@@ -90,39 +99,38 @@ public class DownloadCache {
 		}
 		entry = new CachedFileEntry();
 		entry.fileName = outputFile.getName();
+        Files.copy(outputFile.toPath(), new File(this.basedir, entry.fileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
+        // update index
+		loadIndex();
 		this.index.put(url, entry);
-		FileUtils.copyFile(outputFile, new File(this.basedir, entry.fileName));
 		saveIndex();
 	}
 
 
 
 	private void loadIndex() throws Exception {
-		if (this.indexFile.isFile()) {
-			FileInputStream input = new FileInputStream(this.indexFile);
-			ObjectInputStream deserialize = new ObjectInputStream(input);
-			this.index = (Map<String, CachedFileEntry>)deserialize.readObject();
-			deserialize.close();
+        if (this.indexFile.isFile()) {
+            try (FileLock lock = new RandomAccessFile(this.indexFile, "r").getChannel().lock(0, Long.MAX_VALUE, true)) {
+                try (ObjectInputStream deserialize = new ObjectInputStream(new FileInputStream(this.indexFile))) {
+                    this.index = (Map<String, CachedFileEntry>) deserialize.readObject();
+                }
+            }
 		} else {
-			this.index = new HashMap<String, CachedFileEntry>();
+			this.index = new HashMap<>();
 		}
 
 	}
 
 	private void saveIndex() throws Exception {
-		if (this.basedir.exists() && !this.basedir.isDirectory()) {
-			throw new Exception("Cannot use " + this.basedir + " as cache directory: file exists");
-		}
-		if (!this.basedir.exists()) {
-			this.basedir.mkdirs();
-		}
 		if (!this.indexFile.exists()) {
 			this.indexFile.createNewFile();
 		}
 		FileOutputStream out = new FileOutputStream(this.indexFile);
-		ObjectOutputStream res = new ObjectOutputStream(out);
-		res.writeObject(index);
-		res.close();
+		try (ObjectOutputStream res = new ObjectOutputStream(out)) {
+            try (FileLock lock = out.getChannel().lock()) {
+                res.writeObject(index);
+            }
+        }
 	}
 
 }
