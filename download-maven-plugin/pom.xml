@@ -1,6 +1,6 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-
 	<!-- Build description -->
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>download-maven-plugin</artifactId>
@@ -13,18 +13,16 @@
 		<artifactId>oss-parent</artifactId>
 		<version>7</version>
 	</parent>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+				<version>3.1</version>
 				<configuration>
 					<source>1.5</source>
 					<target>1.5</target>
@@ -32,11 +30,9 @@
 			</plugin>
 			<plugin>
 				<artifactId>maven-release-plugin</artifactId>
-                <version>2.1</version>
+				<version>2.1</version>
 				<configuration>
-					<!--
-						During release:perform, enable the "release" profile
-					-->
+					<!-- During release:perform, enable the "release" profile -->
 					<releaseProfiles>release</releaseProfiles>
 					<goals>deploy site:site site:deploy</goals>
 				</configuration>
@@ -50,7 +46,6 @@
 			</extension>
 		</extensions>
 	</build>
-
 	<profiles>
 		<profile>
 			<id>its</id>
@@ -66,10 +61,10 @@
 								</goals>
 								<configuration>
 									<projectsDirectory>src/it</projectsDirectory>
-		              				<cloneProjectsTo>target/it</cloneProjectsTo>
-		              				<invokerPropertiesFile>invoke.properties</invokerPropertiesFile>
-		              				<postBuildHookScript>verify.groovy</postBuildHookScript>
-		              				<debug>true</debug>
+									<cloneProjectsTo>target/it</cloneProjectsTo>
+									<invokerPropertiesFile>invoke.properties</invokerPropertiesFile>
+									<postBuildHookScript>verify.groovy</postBuildHookScript>
+									<debug>true</debug>
 								</configuration>
 							</execution>
 						</executions>
@@ -78,8 +73,6 @@
 			</build>
 		</profile>
 	</profiles>
-
-
 	<!-- Dependencies -->
 	<dependencies>
 		<dependency>
@@ -136,8 +129,12 @@
 			<artifactId>plexus-utils</artifactId>
 			<version>1.5.4</version>
 		</dependency>
+		<dependency>
+			<groupId>org.apache.maven.wagon</groupId>
+			<artifactId>wagon-provider-api</artifactId>
+			<version>2.4</version>
+		</dependency>
 	</dependencies>
-
 	<!-- Reporting -->
 	<reporting>
 		<plugins>
@@ -209,37 +206,33 @@
 				<artifactId>maven-changes-plugin</artifactId>
 				<configuration>
 					<issueLinkTemplate>%URL%/detail?id=%ISSUE%&amp;can=1</issueLinkTemplate>
-                </configuration>
-                <reportSets>
-                    <reportSet>
-                        <reports>
-                            <report>changes-report</report>
-                        </reports>
-                    </reportSet>
-                </reportSets>
-            </plugin>
-            <plugin>
-                <artifactId>maven-changelog-plugin</artifactId>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>cobertura-maven-plugin</artifactId>
-            </plugin>
+				</configuration>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>changes-report</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+			<plugin>
+				<artifactId>maven-changelog-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>cobertura-maven-plugin</artifactId>
+			</plugin>
 		</plugins>
 	</reporting>
-
-	<!-- Distribution Management,
-	see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide
-	and http://maven.apache.org/wagon/wagon-providers/wagon-scm/usage.html -->
+	<!-- Distribution Management, see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide 
+		and http://maven.apache.org/wagon/wagon-providers/wagon-scm/usage.html -->
 	<distributionManagement>
 		<site>
 			<id>maven-download-plugin</id>
 			<url>scm:git:ssh://git@github.com/maven-download-plugin/maven-download-plugin.git</url>
 		</site>
 	</distributionManagement>
-
 	<!-- Miscellaneous build properties (SCM, license, issues, etc) -->
-
 	<description> This is a plugin meant to help maven user to download
 		different files on different protocol in part of maven build. For the
 		first implementation, there will only be a goal that will help
@@ -269,7 +262,6 @@
 		</developer>
 	</developers>
 	<inceptionYear>2009</inceptionYear>
-
 	<issueManagement>
 		<system>GitHub</system>
 		<url>https://github.com/maven-download-plugin/maven-download-plugin/issues</url>
@@ -297,5 +289,4 @@
 		<name>Open-Source</name>
 		<url>https://github.com/maven-download-plugin/maven-download-plugin</url>
 	</organization>
-
 </project>
