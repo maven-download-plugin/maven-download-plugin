@@ -51,6 +51,13 @@ public class WGet extends AbstractMojo {
    * @required
    */
   private String url;
+  
+  /**
+   * Flag to overwrite the file by redownloading it
+   * 
+   * @parameter expression="${download.overwrite}"
+   */
+  private boolean overwrite;
 
   /**
    * Represent the file name to use as output value. If not set, will use last
@@ -193,7 +200,7 @@ public class WGet extends AbstractMojo {
     // DO
     try
     {
-      if (outputFile.exists())
+      if (outputFile.exists() && !overwrite)
       {
         // TODO verify last modification date
         getLog().info("File already exist, skipping");
