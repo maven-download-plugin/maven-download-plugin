@@ -274,7 +274,7 @@ public class WGet extends AbstractMojo {
   private void doGet(File outputFile) throws Exception {
     String[] segments = this.url.split("/");
     String file = segments[segments.length - 1];
-    String repoUrl = this.url.substring(0, this.url.length() - file.length());
+    String repoUrl = this.url.substring(0, this.url.length() - file.length() - 1);
     Repository repository = new Repository(repoUrl, repoUrl);
 
     Wagon wagon = this.wagonManager.getWagon(repository.getProtocol());
