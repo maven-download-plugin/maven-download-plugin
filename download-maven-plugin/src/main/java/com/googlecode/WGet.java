@@ -22,6 +22,8 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.wagon.Wagon;
+import org.apache.maven.wagon.proxy.ProxyInfo;
+import org.apache.maven.wagon.proxy.ProxyInfoProvider;
 import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
@@ -288,8 +290,16 @@ public class WGet extends AbstractMojo {
     // TODO: this should be retrieved from wagonManager
     com.googlecode.ConsoleDownloadMonitor downloadMonitor = new com.googlecode.ConsoleDownloadMonitor();
     wagon.addTransferListener(downloadMonitor);
-    wagon.connect(repository,
-        this.wagonManager.getProxy(repository.getProtocol()));
+    wagon.connect(repository, null, new ProxyInfoProvider() {
+      public ProxyInfo getProxyInfo(String protocol) {
+        ProxyInfo proxyInfo = wagonManager.getProxy(protocol);
+        if (proxyInfo == null && protocol.equalsIgnoreCase("https"))
+        {
+          proxyInfo = wagonManager.getProxy("http");
+        }
+        return proxyInfo;
+      }
+    });
     wagon.get(file, outputFile);
     wagon.disconnect();
     wagon.removeTransferListener(downloadMonitor);
