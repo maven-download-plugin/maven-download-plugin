@@ -236,6 +236,9 @@ public class Artifact extends AbstractMojo {
 	}
 
 	private void unpackFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoExecutionException {
+		if (!this.outputDirectory.exists()) {
+			this.outputDirectory.mkdir();
+		}
 		File toUnpack = artifact.getFile();
 		if (toUnpack != null && toUnpack.exists() && toUnpack.isFile()) {
 			try {
