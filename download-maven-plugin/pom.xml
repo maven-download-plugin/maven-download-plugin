@@ -65,6 +65,7 @@
 									<invokerPropertiesFile>invoke.properties</invokerPropertiesFile>
 									<postBuildHookScript>verify.groovy</postBuildHookScript>
 									<debug>true</debug>
+									<mavenOpts>-Dtesting.versionUnderTest=${version}</mavenOpts>
 								</configuration>
 							</execution>
 						</executions>
