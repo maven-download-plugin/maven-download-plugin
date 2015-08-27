@@ -190,7 +190,7 @@ public class WGet extends AbstractMojo {
     if (this.cacheDirectory == null)
     {
       this.cacheDirectory = new File(this.session.getLocalRepository()
-          .getBasedir(), ".cache/maven-download-plugin");
+          .getBasedir(), ".cache/download-maven-plugin");
     }
     getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
     DownloadCache cache = new DownloadCache(this.cacheDirectory);

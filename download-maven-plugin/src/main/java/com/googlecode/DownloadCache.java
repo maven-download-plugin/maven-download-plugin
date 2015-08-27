@@ -15,6 +15,7 @@
  */
 package com.googlecode;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 
 import java.io.*;
@@ -98,15 +99,13 @@ public class DownloadCache {
 			return; // entry already here
 		}
 		entry = new CachedFileEntry();
-		entry.fileName = outputFile.getName();
-        Files.copy(outputFile.toPath(), new File(this.basedir, entry.fileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
-        // update index
+		entry.fileName = outputFile.getName() + '_' + DigestUtils.md5Hex(url);
+		Files.copy(outputFile.toPath(), new File(this.basedir, entry.fileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
+		// update index
 		loadIndex();
 		this.index.put(url, entry);
 		saveIndex();
 	}
-
-
 
 	private void loadIndex() throws Exception {
         if (this.indexFile.isFile()) {

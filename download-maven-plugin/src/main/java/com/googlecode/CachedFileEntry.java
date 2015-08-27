@@ -26,14 +26,4 @@ class CachedFileEntry implements Serializable {
 	private static final long serialVersionUID = 322094691022939391L;
 
 	public String fileName;
-
-	/**
-	 * @deprecated As Entries can be updated externally and become
-	 * inconsistent, we mustnt store signatures and always need to
-	 * re-compute them
-	 */
-	@Deprecated
-	public String md5;
-	@Deprecated
-	public String sha1;
 }
