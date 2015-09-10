@@ -51,7 +51,7 @@ public class DownloadCache {
 		}
 	}
 
-	private CachedFileEntry getEntry(String url, String md5, String sha1) throws Exception {
+	private CachedFileEntry getEntry(String url, String md5, String sha1, String sha512) throws Exception {
 		loadIndex();
 		CachedFileEntry res = this.index.get(url);
 		if (res == null) {
@@ -67,6 +67,9 @@ public class DownloadCache {
 		if (sha1 != null && !sha1.equals(SignatureUtils.getSHA1(resFile))) {
 			return null;
 		}
+		if (sha512 != null && !sha512.equals(SignatureUtils.getSHA512(resFile))) {
+			return null;
+		}
 		return res;
 	}
 
@@ -79,22 +82,25 @@ public class DownloadCache {
 	 * @param sha1 Sha1 signature to verify file. Can be null => No check
 	 * @return A File when cache is found, null if no available cache
 	 */
-	public File getArtifact(String url, String md5, String sha1) throws Exception {
-		CachedFileEntry res = getEntry(url, md5, sha1);
+	public File getArtifact(String url, String md5, String sha1, String sha512) throws Exception {
+		CachedFileEntry res = getEntry(url, md5, sha1, sha512);
 		if (res != null) {
 			return new File(this.basedir, res.fileName);
 		}
 		return null;
 	}
 
-	public void install(String url, File outputFile, String md5, String sha1) throws Exception {
+	public void install(String url, File outputFile, String md5, String sha1, String sha512) throws Exception {
 		if (md5 == null) {
 			md5 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("MD5"));
 		}
 		if (sha1 == null) {
 			sha1 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA1"));
 		}
-		CachedFileEntry entry = getEntry(url, md5, sha1);
+		if (sha512 == null) {
+			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA512"));
+		}
+		CachedFileEntry entry = getEntry(url, md5, sha1, sha512);
 		if (entry != null) {
 			return; // entry already here
 		}

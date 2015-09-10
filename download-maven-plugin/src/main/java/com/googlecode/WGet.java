@@ -93,6 +93,14 @@ public class WGet extends AbstractMojo {
   private String sha1;
 
   /**
+   * The sha512 of the file. If set, file signature will be compared to this
+   * signature and plugin will fail.
+   * 
+   * @parameter
+   */
+  private String sha512;
+
+  /**
    * Whether to unpack the file in case it is an archive (.zip)
    * 
    * @parameter default-value="false"
@@ -207,7 +215,7 @@ public class WGet extends AbstractMojo {
       }
       else
       {
-        File cached = cache.getArtifact(this.url, this.md5, this.sha1);
+        File cached = cache.getArtifact(this.url, this.md5, this.sha1, this.sha512);
         if (!this.skipCache && cached != null && cached.exists())
         {
           getLog().info("Got from cache: " + cached.getAbsolutePath());
@@ -231,6 +239,9 @@ public class WGet extends AbstractMojo {
                 SignatureUtils.verifySignature(outputFile, this.sha1,
                     MessageDigest.getInstance("SHA1"));
               }
+              if (this.sha512 != null) {
+                SignatureUtils.verifySignature(outputFile, this.sha512, MessageDigest.getInstance("SHA512"));
+              }
               done = true;
             }
             catch (Exception ex)
@@ -249,7 +260,7 @@ public class WGet extends AbstractMojo {
           }
         }
       }
-      cache.install(this.url, outputFile, this.md5, this.sha1);
+      cache.install(this.url, outputFile, this.md5, this.sha1, this.sha512);
       if (this.unpack)
       {
         unpack(outputFile);

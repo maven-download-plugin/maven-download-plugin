@@ -60,6 +60,7 @@ public class SignatureUtils {
 		return computeSignatureAsString(file, MessageDigest.getInstance("SHA1"));
 	}
 
-
-
+	static String getSHA512(File file) throws IOException, NoSuchAlgorithmException {
+		return computeSignatureAsString(file, MessageDigest.getInstance("SHA512"));
+	}
 }
