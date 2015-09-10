@@ -240,7 +240,7 @@ public class WGet extends AbstractMojo {
                     MessageDigest.getInstance("SHA1"));
               }
               if (this.sha512 != null) {
-                SignatureUtils.verifySignature(outputFile, this.sha512, MessageDigest.getInstance("SHA512"));
+                SignatureUtils.verifySignature(outputFile, this.sha512, MessageDigest.getInstance("SHA-512"));
               }
               done = true;
             }

@@ -61,6 +61,6 @@ public class SignatureUtils {
 	}
 
 	static String getSHA512(File file) throws IOException, NoSuchAlgorithmException {
-		return computeSignatureAsString(file, MessageDigest.getInstance("SHA512"));
+		return computeSignatureAsString(file, MessageDigest.getInstance("SHA-512"));
 	}
 }
