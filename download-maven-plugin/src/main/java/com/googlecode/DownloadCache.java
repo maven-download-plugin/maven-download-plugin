@@ -98,7 +98,7 @@ public class DownloadCache {
 			sha1 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA1"));
 		}
 		if (sha512 == null) {
-			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA512"));
+			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-512"));
 		}
 		CachedFileEntry entry = getEntry(url, md5, sha1, sha512);
 		if (entry != null) {
