@@ -20,10 +20,13 @@ import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.wagon.Wagon;
+import org.apache.maven.wagon.authentication.AuthenticationInfo;
+import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
+import org.codehaus.plexus.util.StringUtils;
 
 import java.io.File;
 import java.net.URL;
@@ -105,6 +108,20 @@ public class WGet extends AbstractMojo {
    * @parameter default-value="false"
    */
   private boolean unpack;
+
+  /**
+   * Custom username for the download
+   *
+   * @parameter
+   */
+  private String username;
+
+  /**
+   * Custom password for the download
+   *
+   * @parameter
+   */
+  private String password;
 
   /**
    * How many retries for a download
@@ -371,8 +388,18 @@ public class WGet extends AbstractMojo {
       downloadMonitor = new ConsoleDownloadMonitor();
       wagon.addTransferListener(downloadMonitor);
     }
-    wagon.connect(repository,
-        this.wagonManager.getProxy(repository.getProtocol()));
+
+    AuthenticationInfo authenticationInfo = new AuthenticationInfo();
+    if (StringUtils.isNotBlank(username)) {
+      getLog().debug("providing custom authentication");
+      getLog().debug("username: " + username + " and password: ***");
+      authenticationInfo.setUserName(username);
+      authenticationInfo.setPassword(password);
+    }
+
+    ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
+
+    wagon.connect(repository, authenticationInfo, proxyInfo);
     wagon.get(file, outputFile);
     wagon.disconnect();
     if (downloadMonitor != null) {
