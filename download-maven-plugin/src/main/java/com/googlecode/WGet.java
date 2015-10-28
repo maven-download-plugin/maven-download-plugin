@@ -136,6 +136,13 @@ public class WGet extends AbstractMojo {
    */
   private File cacheDirectory;
 
+    /**
+     * Flag to determine whether to fail on an unsuccessful download.
+     *
+     * @parameter default-value="false"
+     */
+    private boolean failOnError;
+
   /**
    * Whether to skip execution of Mojo
    * 
@@ -256,7 +263,15 @@ public class WGet extends AbstractMojo {
           }
           if (!done)
           {
-            throw new MojoFailureException("Could not get content");
+              if (failOnError)
+              {
+                 throw  new MojoFailureException("Could not get content");
+              }
+              else
+              {
+                  getLog().warn("Not failing download despite download failure.");
+                  return;
+              }
           }
         }
       }
