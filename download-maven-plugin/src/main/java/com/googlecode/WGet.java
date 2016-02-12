@@ -1,12 +1,11 @@
 /**
  * Copyright 2009-2016 Marc-Andre Houle and Red Hat Inc
- * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -33,11 +32,11 @@ import java.security.MessageDigest;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
- * 
+ *
  * @goal wget
  * @phase process-resources
  * @requiresProject false
- * 
+ *
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
@@ -46,15 +45,15 @@ public class WGet extends AbstractMojo {
 
   /**
    * Represent the URL to fetch information from.
-   * 
+   *
    * @parameter expression="${download.url}"
    * @required
    */
   private String url;
-  
+
   /**
    * Flag to overwrite the file by redownloading it
-   * 
+   *
    * @parameter expression="${download.overwrite}"
    */
   private boolean overwrite;
@@ -62,14 +61,14 @@ public class WGet extends AbstractMojo {
   /**
    * Represent the file name to use as output value. If not set, will use last
    * segment of "url"
-   * 
+   *
    * @parameter expression="${download.outputFileName}"
    */
   private String outputFileName;
 
   /**
    * Represent the directory where the file should be downloaded.
-   * 
+   *
    * @parameter expression="${download.outputDirectory}"
    *            default-value="${project.build.directory}"
    * @required
@@ -79,7 +78,7 @@ public class WGet extends AbstractMojo {
   /**
    * The md5 of the file. If set, file signature will be compared to this
    * signature and plugin will fail.
-   * 
+   *
    * @parameter
    */
   private String md5;
@@ -87,7 +86,7 @@ public class WGet extends AbstractMojo {
   /**
    * The sha1 of the file. If set, file signature will be compared to this
    * signature and plugin will fail.
-   * 
+   *
    * @parameter
    */
   private String sha1;
@@ -95,35 +94,35 @@ public class WGet extends AbstractMojo {
   /**
    * The sha512 of the file. If set, file signature will be compared to this
    * signature and plugin will fail.
-   * 
+   *
    * @parameter
    */
   private String sha512;
 
   /**
    * Whether to unpack the file in case it is an archive (.zip)
-   * 
+   *
    * @parameter default-value="false"
    */
   private boolean unpack;
 
   /**
    * How many retries for a download
-   * 
+   *
    * @parameter default-value="2"
    */
   private int retries;
 
   /**
    * Read timeout for a download in milliseconds
-   * 
+   *
    * @parameter default-value="0"
    */
   private int readTimeOut;
 
   /**
    * Download file without polling cache
-   * 
+   *
    * @parameter default-value="false"
    */
   private boolean skipCache;
@@ -131,7 +130,7 @@ public class WGet extends AbstractMojo {
   /**
    * The directory to use as a cache. Default is
    * ${local-repo}/.cache/maven-download-plugin
-   * 
+   *
    * @parameter expression="${download.cache.directory}"
    */
   private File cacheDirectory;
@@ -145,10 +144,16 @@ public class WGet extends AbstractMojo {
 
   /**
    * Whether to skip execution of Mojo
-   * 
+   *
    * @parameter expression="${download.plugin.skip}" default-value="false"
    */
   private boolean skip;
+
+  /**
+   * Whether to check the signature of existing files
+   * @parameter expression="${checkSignature}" default-value="false"
+   */
+  private boolean checkSignature;
 
   /**
    * @parameter default-value="${session}"
@@ -157,14 +162,14 @@ public class WGet extends AbstractMojo {
 
   /**
    * To look up Archiver/UnArchiver implementation
-   * 
+   *
    * @component
    */
   private ArchiverManager archiverManager;
 
   /**
    * For transfers
-   * 
+   *
    * @component
    */
   private WagonManager wagonManager;
@@ -172,7 +177,7 @@ public class WGet extends AbstractMojo {
 
   /**
    * Method call whent he mojo is executed for the first time.
-   * 
+   *
    * @throws MojoExecutionException
    *           if an error is occuring in this mojo.
    * @throws MojoFailureException
@@ -215,12 +220,60 @@ public class WGet extends AbstractMojo {
     // DO
     try
     {
-      if (outputFile.exists() && !overwrite)
+      boolean haveFile = outputFile.exists();
+      if (haveFile)
       {
+        boolean signatureMatch = true;
+        if (this.checkSignature)
+        {
+          String expectedDigest = null, algorithm = null;
+          if (this.md5 != null)
+          {
+            expectedDigest = this.md5;
+            algorithm = "MD5";
+          }
+
+          if (this.sha1 != null)
+          {
+            expectedDigest = this.sha1;
+            algorithm = "SHA1";
+          }
+
+          if (this.sha512 != null)
+          {
+            expectedDigest = this.sha512;
+            algorithm = "SHA-512";
+          }
+
+          if (expectedDigest != null)
+          {
+            try
+            {
+              SignatureUtils.verifySignature(outputFile, expectedDigest,
+                      MessageDigest.getInstance(algorithm));
+            }
+            catch (MojoFailureException e)
+            {
+              getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected signature. " +
+                      "You should consider checking the specified signature is correctly set.");
+              signatureMatch = false;
+            }
+          }
+        }
+
         // TODO verify last modification date
-        getLog().info("File already exist, skipping");
+        if (!signatureMatch)
+        {
+          outputFile.delete();
+          haveFile = false;
+        }
+        else if (!overwrite)
+        {
+          getLog().info("File already exist, skipping");
+        }
       }
-      else
+
+      if (!haveFile)
       {
         File cached = cache.getArtifact(this.url, this.md5, this.sha1, this.sha512);
         if (!this.skipCache && cached != null && cached.exists())
@@ -247,7 +300,8 @@ public class WGet extends AbstractMojo {
                     MessageDigest.getInstance("SHA1"));
               }
               if (this.sha512 != null) {
-                SignatureUtils.verifySignature(outputFile, this.sha512, MessageDigest.getInstance("SHA-512"));
+                SignatureUtils.verifySignature(outputFile, this.sha512,
+                    MessageDigest.getInstance("SHA-512"));
               }
               done = true;
             }
