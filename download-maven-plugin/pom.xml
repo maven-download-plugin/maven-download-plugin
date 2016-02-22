@@ -63,6 +63,7 @@
 									<projectsDirectory>src/it</projectsDirectory>
 									<cloneProjectsTo>target/it</cloneProjectsTo>
 									<invokerPropertiesFile>invoke.properties</invokerPropertiesFile>
+									<preBuildHookScript>prepare.groovy</preBuildHookScript>
 									<postBuildHookScript>verify.groovy</postBuildHookScript>
 									<debug>true</debug>
 									<mavenOpts>-Dtesting.versionUnderTest=${version}</mavenOpts>
@@ -220,7 +221,7 @@
 			</plugin>
 		</plugins>
 	</reporting>
-	<!-- Distribution Management, see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide 
+	<!-- Distribution Management, see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide
 		and http://maven.apache.org/wagon/wagon-providers/wagon-scm/usage.html -->
 	<distributionManagement>
 		<site>
