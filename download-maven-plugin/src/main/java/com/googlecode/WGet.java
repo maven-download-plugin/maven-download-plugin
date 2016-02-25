@@ -1,5 +1,5 @@
 /**
- * Copyright 2009-2012 Marc-Andre Houle and Red Hat Inc
+ * Copyright 2009-2016 Marc-Andre Houle and Red Hat Inc
  * 
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -139,7 +139,7 @@ public class WGet extends AbstractMojo {
     /**
      * Flag to determine whether to fail on an unsuccessful download.
      *
-     * @parameter default-value="false"
+     * @parameter default-value="true"
      */
     private boolean failOnError;
 
