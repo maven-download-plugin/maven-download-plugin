@@ -31,6 +31,7 @@ import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.artifact.InvalidDependencyVersionException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 import java.io.File;
 import java.io.IOException;
@@ -140,6 +141,9 @@ public class Artifact extends AbstractMojo {
 
 	/** @parameter expression="${localRepository}" */
 	private ArtifactRepository localRepository;
+	
+	/** @component */
+	private BuildContext buildContext;
 
 	private final Set<org.apache.maven.artifact.Artifact> artifactToCopy = new HashSet<org.apache.maven.artifact.Artifact>();
 
@@ -151,6 +155,11 @@ public class Artifact extends AbstractMojo {
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		if(this.dependencyDepth > 0 && this.outputFileName != null){
 			throw new MojoFailureException("Cannot have a dependency depth higher than 0 and an outputFileName");
+		}
+		if (buildContext.isIncremental() && !buildContext.hasDelta(outputDirectory))
+		{
+			getLog().info("maven-download-plugin:artifact skipped on incremental build with no change");
+	        return;
 		}
 		org.apache.maven.artifact.Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
 		downloadAndAddArtifact(artifact, dependencyDepth);
@@ -217,17 +226,20 @@ public class Artifact extends AbstractMojo {
 	private void copyFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoFailureException {
 		File toCopy = artifact.getFile();
 		if (toCopy != null && toCopy.exists() && toCopy.isFile()) {
+			File outputFile = null;
 			try {
 				getLog().info("Copying file " + toCopy.getName() + " to directory " + outputDirectory);
-				File outputFile = null;
 				if(this.outputFileName == null){
 					outputFile = new File(outputDirectory, toCopy.getName());
 				}else{
 					outputFile = new File(outputDirectory, this.outputFileName);
 				}
+				buildContext.removeMessages(outputFile);
                 Files.copy(toCopy.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                buildContext.refresh(outputFile);
 			} catch (IOException e) {
 				getLog().debug("Error while copying file", e);
+				buildContext.addMessage(outputFile, 0, 0, "Error copying the file", BuildContext.SEVERITY_ERROR, e);
 				throw new MojoFailureException("Error copying the file : " + e.getMessage());
 			}
 		} else {
@@ -246,6 +258,7 @@ public class Artifact extends AbstractMojo {
 				unarchiver.setSourceFile(toUnpack);
 				unarchiver.setDestDirectory(this.outputDirectory);
 				unarchiver.extract();
+				buildContext.refresh(this.outputDirectory);
 			} catch (Exception ex) {
 				throw new MojoExecutionException("Issue while unarchiving", ex);
 			}

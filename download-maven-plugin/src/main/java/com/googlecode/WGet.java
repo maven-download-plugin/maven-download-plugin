@@ -24,6 +24,7 @@ import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
+import org.sonatype.plexus.build.incremental.BuildContext;
 
 import java.io.File;
 import java.net.URL;
@@ -173,6 +174,11 @@ public class WGet extends AbstractMojo {
    * @component
    */
   private WagonManager wagonManager;
+  
+  /**
+   * @component
+   */
+  private BuildContext buildContext;
 
 
   /**
@@ -216,6 +222,17 @@ public class WGet extends AbstractMojo {
     DownloadCache cache = new DownloadCache(this.cacheDirectory);
     this.outputDirectory.mkdirs();
     File outputFile = new File(this.outputDirectory, this.outputFileName);
+    
+    // Incremental build
+    if (buildContext.isIncremental() && !buildContext.hasDelta(outputFile))
+    {
+    	getLog().info("maven-download-plugin:wget skipped on incremental build with no change");
+        return;
+    }
+    else
+    {
+    	buildContext.removeMessages(outputFile);
+    }
 
     // DO
     try
@@ -265,6 +282,7 @@ public class WGet extends AbstractMojo {
         if (!signatureMatch)
         {
           outputFile.delete();
+          buildContext.refresh(outputFile);
           haveFile = false;
         }
         else if (!overwrite)
@@ -312,6 +330,8 @@ public class WGet extends AbstractMojo {
               if (this.retries > 0)
               {
                 getLog().warn("Retrying (" + this.retries + " more)");
+                buildContext.addMessage(outputFile, 0, 0, "Could not get content Retrying (" + this.retries + " more)",
+                		BuildContext.SEVERITY_WARNING, ex);
               }
             }
           }
@@ -319,10 +339,14 @@ public class WGet extends AbstractMojo {
           {
               if (failOnError)
               {
-                 throw  new MojoFailureException("Could not get content");
+                 MojoFailureException e = new MojoFailureException("Could not get content");
+                 buildContext.addMessage(outputFile, 0, 0, "Could not get content", BuildContext.SEVERITY_ERROR, e);
+                 throw e;
               }
               else
               {
+            	  buildContext.addMessage(outputFile, 0, 0, "Not failing download despite download failure.", 
+            			  BuildContext.SEVERITY_WARNING, null);
                   getLog().warn("Not failing download despite download failure.");
                   return;
               }
@@ -333,6 +357,11 @@ public class WGet extends AbstractMojo {
       if (this.unpack)
       {
         unpack(outputFile);
+        buildContext.refresh(this.outputDirectory);
+      }
+      else
+      {
+    	buildContext.refresh(outputFile);
       }
     }
     catch (Exception ex)
