@@ -365,13 +365,18 @@ public class WGet extends AbstractMojo {
           "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
               + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
     }
-    // TODO: this should be retrieved from wagonManager
-    com.googlecode.ConsoleDownloadMonitor downloadMonitor = new com.googlecode.ConsoleDownloadMonitor();
-    wagon.addTransferListener(downloadMonitor);
+    ConsoleDownloadMonitor downloadMonitor = null;
+    if (this.session.getSettings().isInteractiveMode()) {
+      // TODO: this should be retrieved from wagonManager
+      downloadMonitor = new ConsoleDownloadMonitor();
+      wagon.addTransferListener(downloadMonitor);
+    }
     wagon.connect(repository,
         this.wagonManager.getProxy(repository.getProtocol()));
     wagon.get(file, outputFile);
     wagon.disconnect();
-    wagon.removeTransferListener(downloadMonitor);
+    if (downloadMonitor != null) {
+      wagon.removeTransferListener(downloadMonitor);
+    }
   }
 }
