@@ -16,10 +16,10 @@ package com.googlecode.download.maven.plugin.internal;
  * limitations under the License.
  */
 
+import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.wagon.WagonConstants;
 import org.apache.maven.wagon.events.TransferEvent;
 import org.apache.maven.wagon.events.TransferListener;
-import org.codehaus.plexus.logging.AbstractLogEnabled;
 
 /**
  * Console download progress meter.
@@ -27,69 +27,74 @@ import org.codehaus.plexus.logging.AbstractLogEnabled;
  * @author <a href="mailto:brett@apache.org">Brett Porter</a>
  * @version $Id: ConsoleDownloadMonitor.java 191492 2005-06-20 15:21:50Z brett $
  */
-public class ConsoleDownloadMonitor
-    extends AbstractLogEnabled
-    implements TransferListener
-{
-    private long complete;
+final class ConsoleDownloadMonitor implements TransferListener {
 
-    public void transferInitiated( TransferEvent transferEvent )
-    {
-        String message = transferEvent.getRequestType() == TransferEvent.REQUEST_PUT ? "Uploading" : "Downloading";
+    private static final String PROGRESS_FORMAT = "%d/%s";
+    private static final long KBYTE = 1024L;
 
-        String url = transferEvent.getWagon().getRepository().getUrl();
+    private final Log log;
+    private long completed;
 
-        // TODO: can't use getLogger() because this isn't currently instantiated as a component
-        System.out.println( message + ": " + url + "/" + transferEvent.getResource().getName() );
-
-        complete = 0;
+    ConsoleDownloadMonitor(final Log logger) {
+        this.log = logger;
+        this.completed = 0L;
     }
 
-    public void transferStarted( TransferEvent transferEvent )
-    {
+    @Override
+    public void transferInitiated(final TransferEvent event) {
+        this.completed = 0L;
+        this.log.info(
+            String.format(
+                "%s: %s/%s",
+                event.getRequestType() == TransferEvent.REQUEST_PUT ? "Uploading" : "Downloading",
+                event.getWagon().getRepository().getUrl(),
+                event.getResource().getName()
+            )
+        );
+    }
+
+    @Override
+    public void transferStarted(final TransferEvent event) {
         // This space left intentionally blank
     }
 
-    public void transferProgress( TransferEvent transferEvent, byte[] buffer, int length )
-    {
-        long total = transferEvent.getResource().getContentLength();
-        complete += length;
-        // TODO [BP]: Sys.out may no longer be appropriate, but will \r work with getLogger()?
-        if ( total >= 1024 )
-        {
-            System.out.print(
-                ( complete / 1024 ) + "/" + ( total == WagonConstants.UNKNOWN_LENGTH ? "?" : ( total / 1024 ) + "K" ) +
-                    "\r" );
+    @Override
+    public void transferProgress(final TransferEvent event, final byte[] buffer, final int length) {
+        final long total = event.getResource().getContentLength();
+        this.completed += (long) length;
+        final String totalInUnits;
+        final long completedInUnits;
+        if (total >= KBYTE) {
+            totalInUnits = total == WagonConstants.UNKNOWN_LENGTH ? "?" : (total / KBYTE) + "K";
+            completedInUnits = this.completed / KBYTE;
+        } else {
+            totalInUnits = total == WagonConstants.UNKNOWN_LENGTH ? "?" : total + "b";
+            completedInUnits = this.completed;
         }
-        else
-        {
-            System.out.print( complete + "/" + ( total == WagonConstants.UNKNOWN_LENGTH ? "?" : total + "b" ) + "\r" );
+        this.log.info(String.format(PROGRESS_FORMAT, completedInUnits, totalInUnits));
+    }
+
+    @Override
+    public void transferCompleted(final TransferEvent event) {
+        final long length = event.getResource().getContentLength();
+        if (length != (long) WagonConstants.UNKNOWN_LENGTH) {
+            this.log.info(
+                String.format(
+                    "%s %s",
+                    event.getRequestType() == TransferEvent.REQUEST_PUT ? "uploaded" : "downloaded",
+                    length >= KBYTE ? (length / KBYTE) + "K" : length + "b"
+                )
+            );
         }
     }
 
-    public void transferCompleted( TransferEvent transferEvent )
-    {
-        long contentLength = transferEvent.getResource().getContentLength();
-        if ( contentLength != WagonConstants.UNKNOWN_LENGTH )
-        {
-            String type = ( transferEvent.getRequestType() == TransferEvent.REQUEST_PUT ? "uploaded" : "downloaded" );
-            String l = contentLength >= 1024 ? ( contentLength / 1024 ) + "K" : contentLength + "b";
-            System.out.println( l + " " + type );
-        }
+    @Override
+    public void transferError(final TransferEvent event) {
+        this.log.error(event.getException());
     }
 
-    public void transferError( TransferEvent transferEvent )
-    {
-        // TODO: can't use getLogger() because this isn't currently instantiated as a component
-        transferEvent.getException().printStackTrace();
-    }
-
-    public void debug( String message )
-    {
-        // TODO: can't use getLogger() because this isn't currently instantiated as a component
-//        getLogger().debug( message );
+    @Override
+    public void debug(final String message) {
+        this.log.debug(message);
     }
 }
-
-
-

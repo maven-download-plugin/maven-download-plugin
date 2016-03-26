@@ -358,8 +358,7 @@ public class WGet extends AbstractMojo {
     }
     ConsoleDownloadMonitor downloadMonitor = null;
     if (this.session.getSettings().isInteractiveMode()) {
-      // TODO: this should be retrieved from wagonManager
-      downloadMonitor = new ConsoleDownloadMonitor();
+      downloadMonitor = new ConsoleDownloadMonitor(this.getLog());
       wagon.addTransferListener(downloadMonitor);
     }
 
