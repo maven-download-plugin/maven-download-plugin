@@ -175,14 +175,6 @@ public class WGet extends AbstractMojo {
   private WagonManager wagonManager;
 
 
-  /**
-   * Method call whent he mojo is executed for the first time.
-   *
-   * @throws MojoExecutionException
-   *           if an error is occuring in this mojo.
-   * @throws MojoFailureException
-   *           if an error is occuring in this mojo.
-   */
   public void execute() throws MojoExecutionException, MojoFailureException {
     if (this.skip)
     {
