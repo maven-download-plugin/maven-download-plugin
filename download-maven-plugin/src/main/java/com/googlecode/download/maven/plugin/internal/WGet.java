@@ -12,7 +12,7 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-package com.googlecode;
+package com.googlecode.download.maven.plugin.internal;
 
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
