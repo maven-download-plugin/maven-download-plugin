@@ -15,6 +15,14 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -25,6 +33,10 @@ import org.apache.maven.artifact.resolver.ArtifactResolver;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
@@ -32,63 +44,44 @@ import org.apache.maven.project.artifact.InvalidDependencyVersionException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 /**
  * This mojo is designed to download a maven artifact from the repository and
  * download them in the specified path. The maven artifact downloaded can also
  * download it's dependency or not, based on a parameter.
  *
- * @goal artifact
- * @phase process-resources
- * @requiresProject false
- *
  * @author Marc-Andre Houle
  *
  */
+@Mojo(name="artifact", defaultPhase=LifecyclePhase.PROCESS_RESOURCES, requiresProject=false)
 public class Artifact extends AbstractMojo {
 	/**
 	 * The artifact Id of the file to download.
-	 *
-	 * @parameter expression="${artifactId}"
-	 * @required
 	 */
+	@Parameter(property="artifactId", required=true)
 	private String artifactId;
 
 	/**
 	 * The group Id of the file to download.
-	 *
-	 * @parameter expression="${groupId}"
-	 * @required
 	 */
+	@Parameter(property="groupId", required=true)
 	private String groupId;
 
 	/**
 	 * The version of the file to download.
-	 *
-	 * @parameter expression="${version}"
-	 * @required
 	 */
+	@Parameter(property="version", required=true)
 	private String version;
 
 	/**
 	 * The type of artifact to download.
-	 *
-	 * @parameter expression="${type}" default-value=jar
 	 */
+	@Parameter(property="type", defaultValue="jar")
 	private String type;
 
 	/**
 	 * The classifier of artifact to download.
-	 *
-	 * @parameter expression="${classifier}"
 	 */
+	@Parameter(property="classifier")
 	private String classifier;
 
 	/**
@@ -97,6 +90,7 @@ public class Artifact extends AbstractMojo {
 	 * @parameter expression="${outputDirectory}"
 	 *            default-value="${project.build.directory}"
 	 */
+	@Parameter(property="outputDirectory", defaultValue="${project.build.directory}")
 	private File outputDirectory;
 
 	/**
@@ -104,41 +98,41 @@ public class Artifact extends AbstractMojo {
 	  * is set to 0.
 	  * @parameter expression="${outputFileName}"
 	  */
+	@Parameter(property="outputFileName")
 	private String outputFileName;
 
 	/**
 	 * Whether to unpack the artifact
-	 * @parameter expression="${unpack}" default-value="false"
 	 */
+	@Parameter(property="unpack", defaultValue="false")
 	private boolean unpack;
 
 	/**
 	 * The dependency depth to query. Will try to fetch the artifact for as much
 	 * as the number of dependency specified.
-	 *
-	 * @parameter expression="${dependencyDepth}" default-value=0
 	 */
+	@Parameter(property="dependencyDepth", defaultValue="0")
 	private long dependencyDepth;
 
-	/** @parameter expression="${project.remoteArtifactRepositories}" */
+	@Parameter(property="project.remoteArtifactRepositories")
 	private List remoteRepositories;
 
-	/** @component */
+	@Component
 	private ArtifactFactory artifactFactory;
 
-	/** @component */
+	@Component
 	private ArtifactResolver resolver;
 
-	/** @component */
+	@Component
 	private ArtifactMetadataSource metadatSource;
 
-	/** @component */
+	@Component
 	private MavenProjectBuilder mavenProjectBuilder;
 
-	/** @component */
+	@Component
 	private ArchiverManager archiverManager;
 
-	/** @parameter expression="${localRepository}" */
+	@Parameter(property="localRepository")
 	private ArtifactRepository localRepository;
 
 	private final Set<org.apache.maven.artifact.Artifact> artifactToCopy = new HashSet<org.apache.maven.artifact.Artifact>();

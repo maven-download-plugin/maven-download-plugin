@@ -19,6 +19,10 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.wagon.Wagon;
 import org.apache.maven.wagon.authentication.AuthenticationInfo;
 import org.apache.maven.wagon.proxy.ProxyInfo;
@@ -36,159 +40,129 @@ import java.security.MessageDigest;
 /**
  * Will download a file from a web site using the standard HTTP protocol.
  *
- * @goal wget
- * @phase process-resources
- * @requiresProject false
- *
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-
+@Mojo(name="wget", defaultPhase=LifecyclePhase.PROCESS_RESOURCES, requiresProject=false)
 public class WGet extends AbstractMojo {
 
   /**
    * Represent the URL to fetch information from.
-   *
-   * @parameter expression="${download.url}"
-   * @required
    */
+  @Parameter(property="download.url", required=true)
   private String url;
 
   /**
    * Flag to overwrite the file by redownloading it
-   *
-   * @parameter expression="${download.overwrite}"
    */
+  @Parameter(property="download.overwrite")
   private boolean overwrite;
 
   /**
    * Represent the file name to use as output value. If not set, will use last
    * segment of "url"
-   *
-   * @parameter expression="${download.outputFileName}"
    */
+  @Parameter(property="download.outputFileName")
   private String outputFileName;
 
   /**
    * Represent the directory where the file should be downloaded.
-   *
-   * @parameter expression="${download.outputDirectory}"
-   *            default-value="${project.build.directory}"
-   * @required
    */
+  @Parameter(property="download.outputDirectory", defaultValue="${project.build.directory}", required=true)
   private File outputDirectory;
 
   /**
    * The md5 of the file. If set, file signature will be compared to this
    * signature and plugin will fail.
-   *
-   * @parameter
    */
+  @Parameter
   private String md5;
 
   /**
    * The sha1 of the file. If set, file signature will be compared to this
    * signature and plugin will fail.
-   *
-   * @parameter
    */
+  @Parameter
   private String sha1;
 
   /**
    * The sha512 of the file. If set, file signature will be compared to this
    * signature and plugin will fail.
-   *
-   * @parameter
    */
+  @Parameter
   private String sha512;
 
   /**
    * Whether to unpack the file in case it is an archive (.zip)
-   *
-   * @parameter default-value="false"
    */
+  @Parameter(defaultValue="false")
   private boolean unpack;
 
   /**
    * Custom username for the download
-   *
-   * @parameter
    */
+  @Parameter
   private String username;
 
   /**
    * Custom password for the download
-   *
-   * @parameter
    */
+  @Parameter
   private String password;
 
   /**
    * How many retries for a download
-   *
-   * @parameter default-value="2"
    */
+  @Parameter(defaultValue="2")
   private int retries;
 
   /**
    * Read timeout for a download in milliseconds
-   *
-   * @parameter default-value="0"
    */
+  @Parameter(defaultValue="0")
   private int readTimeOut;
 
   /**
    * Download file without polling cache
-   *
-   * @parameter default-value="false"
    */
+  @Parameter(defaultValue="false")
   private boolean skipCache;
 
   /**
    * The directory to use as a cache. Default is
    * ${local-repo}/.cache/maven-download-plugin
-   *
-   * @parameter expression="${download.cache.directory}"
    */
+  @Parameter(property="download.cache.directory")
   private File cacheDirectory;
 
-    /**
-     * Flag to determine whether to fail on an unsuccessful download.
-     *
-     * @parameter default-value="true"
-     */
-    private boolean failOnError;
+  /**
+   * Flag to determine whether to fail on an unsuccessful download.
+   */
+  @Parameter(defaultValue="true")
+  private boolean failOnError;
 
   /**
    * Whether to skip execution of Mojo
-   *
-   * @parameter expression="${download.plugin.skip}" default-value="false"
    */
+  @Parameter(property="download.plugin.skip", defaultValue="false")
   private boolean skip;
 
   /**
    * Whether to check the signature of existing files
-   * @parameter expression="${checkSignature}" default-value="false"
    */
+  @Parameter(property="checkSignature", defaultValue="false")
   private boolean checkSignature;
 
-  /**
-   * @parameter default-value="${session}"
-   */
+  @Parameter(property="session")
   private MavenSession session;
 
-  /**
-   * To look up Archiver/UnArchiver implementation
-   *
-   * @component
-   */
+  @Component
   private ArchiverManager archiverManager;
 
   /**
    * For transfers
-   *
-   * @component
    */
+  @Component
   private WagonManager wagonManager;
 
 

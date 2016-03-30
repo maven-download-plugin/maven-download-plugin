@@ -78,8 +78,8 @@ public class DownloadCache {
 	 * if expected signatures don't match cached ones, returns null.
 	 * available in cache,
 	 * @param url URL of the file
-	 * @param md5 MD5 signature to verify file. Can be null => No check
-	 * @param sha1 Sha1 signature to verify file. Can be null => No check
+	 * @param md5 MD5 signature to verify file. Can be null =&gt; No check
+	 * @param sha1 Sha1 signature to verify file. Can be null =&gt; No check
 	 * @return A File when cache is found, null if no available cache
 	 */
 	public File getArtifact(String url, String md5, String sha1, String sha512) throws Exception {
