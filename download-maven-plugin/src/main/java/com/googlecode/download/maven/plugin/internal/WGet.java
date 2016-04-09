@@ -237,6 +237,10 @@ public class WGet extends AbstractMojo {
                     haveFile = false;
                 } else if (!overwrite) {
                     getLog().info("File already exist, skipping");
+                } else {
+                    // If no signature provided and owerwriting requested we
+                    // will treat the fact as if there is no file in the cache.
+                    haveFile = false;
                 }
             }
 

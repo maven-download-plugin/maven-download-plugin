@@ -88,7 +88,12 @@
 									<debug>true</debug>
 									<environmentVariables>
 										<testing.versionUnderTest>${project.version}</testing.versionUnderTest>
+										<test.jpg.file.name>lolcatsdotcomcm90ebvhwphtzqvf.jpg</test.jpg.file.name>
+										<test.jpg.file.url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</test.jpg.file.url>
 									</environmentVariables>
+									<scriptVariables>
+										<jpg_file_name>lolcatsdotcomcm90ebvhwphtzqvf.jpg</jpg_file_name>
+									</scriptVariables>
 								</configuration>
 							</execution>
 						</executions>
