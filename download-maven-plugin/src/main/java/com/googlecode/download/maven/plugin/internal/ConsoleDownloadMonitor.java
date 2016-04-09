@@ -23,7 +23,6 @@ import org.apache.maven.wagon.events.TransferListener;
 
 /**
  * Console download progress meter.
- *
  * @author <a href="mailto:brett@apache.org">Brett Porter</a>
  * @version $Id: ConsoleDownloadMonitor.java 191492 2005-06-20 15:21:50Z brett $
  */

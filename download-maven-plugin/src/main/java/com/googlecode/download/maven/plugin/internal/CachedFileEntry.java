@@ -20,10 +20,9 @@ import java.io.Serializable;
 /**
  * This describes a cache file
  * @author Mickael Istria (Red Hat Inc)
- *
  */
 class CachedFileEntry implements Serializable {
-	private static final long serialVersionUID = 322094691022939391L;
+    private static final long serialVersionUID = 322094691022939391L;
 
-	public String fileName;
+    public String fileName;
 }
