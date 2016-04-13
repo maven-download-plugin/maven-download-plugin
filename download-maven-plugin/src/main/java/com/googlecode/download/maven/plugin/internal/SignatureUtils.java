@@ -29,14 +29,14 @@ import org.apache.maven.plugin.MojoFailureException;
  */
 public class SignatureUtils {
 
-    static void verifySignature(File file, String expectedDigest, MessageDigest digest) throws Exception {
+    public static void verifySignature(File file, String expectedDigest, MessageDigest digest) throws Exception {
         String actualDigestHex = SignatureUtils.computeSignatureAsString(file, digest);
         if (!actualDigestHex.equals(expectedDigest)) {
             throw new MojoFailureException("Not same digest as expected: expected <" + expectedDigest + "> was <" + actualDigestHex + ">");
         }
     }
 
-    static String computeSignatureAsString(File file,
+    public static String computeSignatureAsString(File file,
         MessageDigest digest) throws IOException {
         InputStream fis = new FileInputStream(file);
         byte[] buffer = new byte[1024];
@@ -52,15 +52,15 @@ public class SignatureUtils {
         return new String(Hex.encodeHex(actualDigest));
     }
 
-    static String getMD5(File file) throws IOException, NoSuchAlgorithmException {
+    public static String getMD5(File file) throws IOException, NoSuchAlgorithmException {
         return computeSignatureAsString(file, MessageDigest.getInstance("MD5"));
     }
 
-    static String getSHA1(File file) throws IOException, NoSuchAlgorithmException {
+    public static String getSHA1(File file) throws IOException, NoSuchAlgorithmException {
         return computeSignatureAsString(file, MessageDigest.getInstance("SHA1"));
     }
 
-    static String getSHA512(File file) throws IOException, NoSuchAlgorithmException {
+    public static String getSHA512(File file) throws IOException, NoSuchAlgorithmException {
         return computeSignatureAsString(file, MessageDigest.getInstance("SHA-512"));
     }
 }
