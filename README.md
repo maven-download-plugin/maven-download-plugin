@@ -84,6 +84,12 @@ See https://groups.google.com/forum/?fromgroups#!forum/maven-download-plugin
 
 Are maintained at GitHub (links above).
 
+### Contribute
+
+The recommended way to contribute is to use [Gerrit](https://gerrit-review.googlesource.com/Documentation/user-upload.html) and GerritHub: https://review.gerrithub.io/#/admin/projects/maven-download-plugin/maven-download-plugin . Gerrit is pretty convenient as it manages topic branches automatically, allows a better tracking of various versions of a patch, enforce 1 commit per change and prevents from merge commits without payload.
+
+Alternatively, this project support GitHub PR, but enforce some rules for decent tracking: 1 Change Request == 1 PR == 1 commit, if a change can be made by iterations, then use a specific PR for each iteration.
+
 ## Other links
 
 Project metrics on Ohloh: [![Ohloh](https://www.ohloh.net/p/maven-download-plugin/widgets/project_partner_badge.gif)](https://www.ohloh.net/p/maven-download-plugin)
