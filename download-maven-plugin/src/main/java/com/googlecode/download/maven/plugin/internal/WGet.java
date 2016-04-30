@@ -16,7 +16,7 @@ package com.googlecode.download.maven.plugin.internal;
 
 import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import java.io.File;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import org.apache.maven.artifact.manager.WagonManager;
@@ -49,8 +49,8 @@ public class WGet extends AbstractMojo {
     /**
      * Represent the URL to fetch information from.
      */
-    @Parameter(property = "download.url", required = true)
-    private URL url;
+    @Parameter(alias = "url", property = "download.url", required = true)
+    private URI uri;
 
     /**
      * Flag to overwrite the file by redownloading it
@@ -184,7 +184,7 @@ public class WGet extends AbstractMojo {
         // PREPARE
         if (this.outputFileName == null) {
             try {
-                this.outputFileName = new File(this.url.getFile()).getName();
+                this.outputFileName = new File(this.uri.toURL().getFile()).getName();
             } catch (Exception ex) {
                 throw new MojoExecutionException("Invalid URL", ex);
             }
@@ -246,7 +246,7 @@ public class WGet extends AbstractMojo {
             }
 
             if (!haveFile) {
-                File cached = cache.getArtifact(this.url, this.md5, this.sha1, this.sha512);
+                File cached = cache.getArtifact(this.uri, this.md5, this.sha1, this.sha512);
                 if (!this.skipCache && cached != null && cached.exists()) {
                     getLog().info("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
@@ -286,7 +286,7 @@ public class WGet extends AbstractMojo {
                     }
                 }
             }
-            cache.install(this.url, outputFile, this.md5, this.sha1, this.sha512);
+            cache.install(this.uri, outputFile, this.md5, this.sha1, this.sha512);
             if (this.unpack) {
                 unpack(outputFile);
             }
@@ -306,7 +306,7 @@ public class WGet extends AbstractMojo {
 
 
     private void doGet(File outputFile) throws Exception {
-        String urlStr = this.url.toString();
+        String urlStr = this.uri.toString();
         String[] segments = urlStr.split("/");
         String file = segments[segments.length - 1];
         String repoUrl = urlStr.substring(0, urlStr.length() - file.length() - 1);

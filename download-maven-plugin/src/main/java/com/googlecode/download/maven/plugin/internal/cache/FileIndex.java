@@ -1,10 +1,10 @@
 package com.googlecode.download.maven.plugin.internal.cache;
 
-import java.net.URL;
+import java.net.URI;
 
 /**
  * Convenient map to search for the path where file is locally stored
- * by url of the resource the file was downloaded from.
+ * by uri of the resource the file was downloaded from.
  * Implementations should not read/write file bodies using stored paths.
  *
  * @author Paul Polishchuk
@@ -13,25 +13,25 @@ import java.net.URL;
 interface FileIndex {
 
     /**
-     * Adds given path to the index using url parameter as a key.
-     * @param url index key
+     * Adds given path to the index using uri parameter as a key.
+     * @param uri index key
      * @param path index value
      */
-    void put(URL url, String path);
+    void put(URI uri, String path);
 
     /**
-     * Check if a path associated with the url key in the index.
+     * Check if a path associated with the uri key in the index.
      * <p>Use this method before actually trying to get value.
-     * @param url index key
+     * @param uri index key
      * @return true if some path associated with given key
      */
-    boolean contains(URL url);
+    boolean contains(URI uri);
 
     /**
      * Gets stored value by the key.
-     * @param url index key
-     * @return path by given url key; never NULL
+     * @param uri index key
+     * @return path by given uri key; never NULL
      * @throws IllegalStateException in case key is not found
      */
-    String get(URL url);
+    String get(URI uri);
 }

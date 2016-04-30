@@ -17,7 +17,7 @@ package com.googlecode.download.maven.plugin.internal.cache;
 
 import com.googlecode.download.maven.plugin.internal.SignatureUtils;
 import java.io.File;
-import java.net.URL;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
@@ -39,11 +39,11 @@ public class DownloadCache {
         this.basedir = cacheDirectory;
     }
 
-	private String getEntry(URL url, String md5, String sha1, String sha512) throws Exception {
-		if (!this.index.contains(url)) {
+	private String getEntry(URI uri, String md5, String sha1, String sha512) throws Exception {
+		if (!this.index.contains(uri)) {
 			return null;
 		}
-		final String res = this.index.get(url);
+		final String res = this.index.get(uri);
 		File resFile = new File(this.basedir, res);
 		if (!resFile.isFile()) {
 			return null;
@@ -64,20 +64,20 @@ public class DownloadCache {
 	 * Get a File in the download cache. If no cache for this URL, or
 	 * if expected signatures don't match cached ones, returns null.
 	 * available in cache,
-	 * @param url URL of the file
+	 * @param uri URL of the file
 	 * @param md5 MD5 signature to verify file. Can be null =&gt; No check
 	 * @param sha1 Sha1 signature to verify file. Can be null =&gt; No check
 	 * @return A File when cache is found, null if no available cache
 	 */
-    public File getArtifact(URL url, String md5, String sha1, String sha512) throws Exception {
-		String res = getEntry(url, md5, sha1, sha512);
+    public File getArtifact(URI uri, String md5, String sha1, String sha512) throws Exception {
+		String res = getEntry(uri, md5, sha1, sha512);
 		if (res != null) {
 			return new File(this.basedir, res);
 		}
 		return null;
 	}
 
-    public void install(URL url, File outputFile, String md5, String sha1, String sha512) throws Exception {
+    public void install(URI uri, File outputFile, String md5, String sha1, String sha512) throws Exception {
 		if (md5 == null) {
 			md5 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("MD5"));
 		}
@@ -87,14 +87,14 @@ public class DownloadCache {
 		if (sha512 == null) {
 			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-512"));
 		}
-		String entry = getEntry(url, md5, sha1, sha512);
+		String entry = getEntry(uri, md5, sha1, sha512);
 		if (entry != null) {
 			return; // entry already here
 		}
-		String fileName = outputFile.getName() + '_' + DigestUtils.md5Hex(url.toString());
+		String fileName = outputFile.getName() + '_' + DigestUtils.md5Hex(uri.toString());
 		Files.copy(outputFile.toPath(), new File(this.basedir, fileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
 		// update index
-		this.index.put(url, fileName);
+		this.index.put(uri, fileName);
 	}
 
     private static void createIfNeeded(final File basedir) {

@@ -2,7 +2,7 @@ package com.googlecode.download.maven.plugin.internal.cache;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URL;
+import java.net.URI;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.Rule;
@@ -20,9 +20,9 @@ public final class FileBackedIndexTest {
     public final TemporaryFolder tmp = new TemporaryFolder();
 
     @Test
-    public void putCheckAndGet() throws IOException {
+    public void putCheckAndGet() throws Exception {
         final FileIndex index = new FileBackedIndex(this.tmp.newFolder("cacheDir"));
-        final URL url = new URL("http://localhost/first/url");
+        final URI url = URI.create("http://localhost/first/url");
         final String path = "some path";
         index.put(url, path);
         MatcherAssert.assertThat(index.contains(url), Matchers.is(true));
@@ -30,16 +30,16 @@ public final class FileBackedIndexTest {
     }
 
     @Test
-    public void checkForNotExistent() throws IOException {
+    public void checkForNotExistent() throws Exception {
         final FileIndex index = new FileBackedIndex(this.tmp.newFolder("cacheDir"));
         MatcherAssert.assertThat(
-            index.contains(new URL("http://localhost/not/exist")), Matchers.is(false)
+            index.contains(URI.create("http://localhost/not/exist")), Matchers.is(false)
         );
     }
 
     @Test(expected = IllegalStateException.class)
-    public void throwsIfGetNotExistent() throws IOException {
-        new FileBackedIndex(this.tmp.newFolder("cacheDir")).get(new URL("http://localhost/not/exist"));
+    public void throwsIfGetNotExistent() throws Exception {
+        new FileBackedIndex(this.tmp.newFolder("cacheDir")).get(URI.create("http://localhost/not/exist"));
     }
 
     @Test(expected = IllegalArgumentException.class)
