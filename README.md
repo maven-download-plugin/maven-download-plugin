@@ -59,6 +59,10 @@ It provides caching and signature verification.
 </plugin>
 ```
 
+## Java compatibility
+
+If you use Java 6, you should use `maven-download-plugin@1.2.1`. Newer versions are not compatible with Java 6.
+
 ## Help
 
 ### Maven help
