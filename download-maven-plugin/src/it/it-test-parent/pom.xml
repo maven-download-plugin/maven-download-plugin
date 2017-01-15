@@ -1,0 +1,24 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>@project.groupId@</groupId>
+	<artifactId>it-test-parent</artifactId>
+	<version>@project.version@</version>
+	<packaging>pom</packaging>
+	<name>${project.artifactId}</name>
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>@project.groupId@</groupId>
+					<artifactId>@project.artifactId@</artifactId>
+					<version>@project.version@</version>
+					<configuration>
+						<url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</url>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+</project>

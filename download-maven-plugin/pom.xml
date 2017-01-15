@@ -84,7 +84,7 @@
 									<localRepositoryPath>${project.build.directory}/local-repo</localRepositoryPath>
 									<invokerPropertiesFile>invoke.properties</invokerPropertiesFile>
 									<preBuildHookScript>prepare.groovy</preBuildHookScript>
-									<postBuildHookScript>verify.groovy</postBuildHookScript>
+									<postBuildHookScript>verify</postBuildHookScript>
 									<debug>true</debug>
 									<environmentVariables>
 										<testing.versionUnderTest>${project.version}</testing.versionUnderTest>
@@ -94,6 +94,7 @@
 									<scriptVariables>
 										<jpg_file_name>lolcatsdotcomcm90ebvhwphtzqvf.jpg</jpg_file_name>
 									</scriptVariables>
+									<settingsFile>src/it/settings.xml</settingsFile>
 								</configuration>
 							</execution>
 						</executions>

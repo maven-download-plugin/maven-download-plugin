@@ -1,0 +1,26 @@
+import java.io.*;
+import org.codehaus.plexus.util.*;
+
+if ( !basedir.exists() )
+{
+    System.err.println( basedir.getAbsolutePath() + " is missing." );
+    return false;
+}
+
+File buildLog = new File( basedir, "build.log" );
+if ( !buildLog.exists() )
+{
+    System.err.println( buildLog.getAbsolutePath() + " is missing." );
+    return false;
+}
+
+String content = IOUtil.toString( new FileInputStream( buildLog ) );
+String importError = "serverId y supplies username: X and password: ***";
+if ( content.contains( importError ) )
+{
+    System.err.println( "build.log contains '" + importError + "'" );
+    return true;
+}
+
+System.err.println("_------------------------------------  FAIL!");
+return false;                                                                                                                                                                                                                                                        

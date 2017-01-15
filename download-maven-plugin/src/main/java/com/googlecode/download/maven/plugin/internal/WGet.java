@@ -28,6 +28,8 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.settings.Server;
+import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.Wagon;
 import org.apache.maven.wagon.authentication.AuthenticationInfo;
 import org.apache.maven.wagon.proxy.ProxyInfo;
@@ -99,6 +101,13 @@ public class WGet extends AbstractMojo {
     private boolean unpack;
 
     /**
+     * Server Id from settings file to use for authentication
+     * Only one of serverId or (username/password) may be supplied
+     */
+    @Parameter
+    private String serverId;
+    
+    /**
      * Custom username for the download
      */
     @Parameter
@@ -165,6 +174,8 @@ public class WGet extends AbstractMojo {
     @Component
     private WagonManager wagonManager;
 
+    @Parameter(defaultValue = "${settings}", readonly = true, required = true)
+    private Settings settings;
 
     /**
      * Method call whent he mojo is executed for the first time.
@@ -176,7 +187,16 @@ public class WGet extends AbstractMojo {
             getLog().info("maven-download-plugin:wget skipped");
             return;
         }
-
+        
+        if (!StringUtils.isBlank(serverId) && (!StringUtils.isBlank(username) || !StringUtils.isBlank(password))) {
+            getLog().error("Specify either serverId or username/password, not both");
+            throw new MojoExecutionException("Specify either serverId or username/password, not both");
+        }
+        
+        if (settings == null) {
+            throw new MojoExecutionException("SETTINGS IS NULL");
+        }
+        getLog().info("Got settings");
         if (retries < 1) {
             throw new MojoFailureException("retries must be at least 1");
         }
@@ -331,6 +351,14 @@ public class WGet extends AbstractMojo {
             getLog().debug("username: " + username + " and password: ***");
             authenticationInfo.setUserName(username);
             authenticationInfo.setPassword(password);
+        } else if (StringUtils.isNotBlank(serverId)) {
+            getLog().debug("providing custom authentication for " + serverId);
+            Server s = settings.getServer(serverId);
+            if (s == null)
+                throw new MojoExecutionException("Server " + serverId + " not found");
+            getLog().debug("serverId " + serverId + " supplies username: " + s.getUsername() + " and password: ***");
+            authenticationInfo.setUserName(s.getUsername());
+            authenticationInfo.setPassword(s.getPassword());
         }
 
         ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
