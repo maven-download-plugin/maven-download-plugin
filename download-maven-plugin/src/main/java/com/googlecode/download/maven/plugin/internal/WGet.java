@@ -188,7 +188,7 @@ public class WGet extends AbstractMojo {
             return;
         }
         
-        if (StringUtils.isNotBlank(serverId) || (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password))) {
+        if (StringUtils.isNotBlank(serverId) && (StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password))) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
         
