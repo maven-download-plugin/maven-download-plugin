@@ -188,15 +188,14 @@ public class WGet extends AbstractMojo {
             return;
         }
         
-        if (!StringUtils.isBlank(serverId) && (!StringUtils.isBlank(username) || !StringUtils.isBlank(password))) {
-            getLog().error("Specify either serverId or username/password, not both");
+        if (StringUtils.isNotBlank(serverId) || (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password))) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
         
         if (settings == null) {
-            throw new MojoExecutionException("SETTINGS IS NULL");
+            getLog().warn("settings is null");
         }
-        getLog().info("Got settings");
+        getLog().debug("Got settings");
         if (retries < 1) {
             throw new MojoFailureException("retries must be at least 1");
         }
@@ -353,12 +352,12 @@ public class WGet extends AbstractMojo {
             authenticationInfo.setPassword(password);
         } else if (StringUtils.isNotBlank(serverId)) {
             getLog().debug("providing custom authentication for " + serverId);
-            Server s = settings.getServer(serverId);
-            if (s == null)
-                throw new MojoExecutionException("Server " + serverId + " not found");
-            getLog().debug("serverId " + serverId + " supplies username: " + s.getUsername() + " and password: ***");
-            authenticationInfo.setUserName(s.getUsername());
-            authenticationInfo.setPassword(s.getPassword());
+            Server server = settings.getServer(serverId);
+            if (server == null)
+                throw new MojoExecutionException(String.format("Server %s not found", serverId));
+            getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
+            authenticationInfo.setUserName(server.getUsername());
+            authenticationInfo.setPassword(server.getPassword());
         }
 
         ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
