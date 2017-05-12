@@ -1,7 +1,6 @@
 .classpath
+.settings
+target
 .project
-.settings/
-target/
-/release.properties
 *.iml
 .idea/

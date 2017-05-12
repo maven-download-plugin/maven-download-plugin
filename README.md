@@ -1,7 +1,11 @@
-# Maven Download Plugin
+# Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
 
+__WARNING about artifactId__: Until version 1.1, the plugin artifactId used to be _maven-download-plugin_, however Maven conventions makes that this name is not allowed for a plugin which is not part of the Apache Maven project. So starting from version 1.2-SNAPSHOT, the plugin artifactId is _download-maven-plugin_. The following documentation will get updated when releasing download-maven-plugin:1.2.
+
 ## Enable 
+
+This Maven plugin should be available on Maven Central. But in case you can't find it on Central for some reason, here is the repository to add to your pom:
 
 ```xml
 <pluginRepository>
@@ -26,7 +30,7 @@ Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/p
 
 
 ```
-mvn com.googlecode.maven-download-plugin:maven-download-plugin:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.3.0:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
 ```
 
 ### "WGet" goal
@@ -35,8 +39,8 @@ It provides caching and signature verification.
 ```xml
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>
-	<artifactId>maven-download-plugin</artifactId>
-	<version>1.0.0</version>
+	<artifactId>download-maven-plugin</artifactId>
+	<version>1.3.0</version>
 	<executions>
 		<execution>
 			<id>install-jbpm</id>
@@ -70,7 +74,7 @@ mvn help:describe -Dplugin=com.googlecode.maven-download-plugin:maven-download-p
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.0.0](http://mickaelistria.github.com/maven-download-plugin/docsite/1.0.0/) and [for snapshot](http://mickaelistria.github.com/maven-download-plugin/docsite/snapshot/).
+See also generated documentation pages [for 1.3.0](http://maven-download-plugin.github.com/maven-download-plugin/docsite/1.3.0/) and [for snapshot](http://maven-download-plugin.github.com/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
@@ -79,6 +83,12 @@ See https://groups.google.com/forum/?fromgroups#!forum/maven-download-plugin
 ### Issue Tracker and wikis...
 
 Are maintained at GitHub (links above).
+
+### Contribute
+
+The recommended way to contribute is to use [Gerrit](https://gerrit-review.googlesource.com/Documentation/user-upload.html) and GerritHub: https://review.gerrithub.io/#/admin/projects/maven-download-plugin/maven-download-plugin . Gerrit is pretty convenient as it manages topic branches automatically, allows a better tracking of various versions of a patch, enforce 1 commit per change and prevents from merge commits without payload.
+
+Alternatively, this project support GitHub PR, but enforce some rules for decent tracking: 1 Change Request == 1 PR == 1 commit, if a change can be made by iterations, then use a specific PR for each iteration.
 
 ## Other links
 
