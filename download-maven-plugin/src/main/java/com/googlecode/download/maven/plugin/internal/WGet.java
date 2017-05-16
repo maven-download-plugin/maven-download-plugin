@@ -14,11 +14,32 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
-import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.config.RequestConfig.Builder;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -30,14 +51,15 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
-import org.apache.maven.wagon.Wagon;
-import org.apache.maven.wagon.authentication.AuthenticationInfo;
+import org.apache.maven.wagon.events.TransferEvent;
 import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.StringUtils;
+
+import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
@@ -273,7 +295,7 @@ public class WGet extends AbstractMojo {
                     boolean done = false;
                     while (!done && this.retries > 0) {
                         try {
-                            doGet(outputFile);
+                            doGet(uri.toURL(), outputFile, retries);
                             if (this.md5 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.md5,
                                     MessageDigest.getInstance("MD5"));
@@ -324,49 +346,134 @@ public class WGet extends AbstractMojo {
     }
 
 
-    private void doGet(File outputFile) throws Exception {
-        String urlStr = this.uri.toString();
-        String[] segments = urlStr.split("/");
-        String file = segments[segments.length - 1];
-        String repoUrl = urlStr.substring(0, urlStr.length() - file.length() - 1);
-        Repository repository = new Repository(repoUrl, repoUrl);
-
-        Wagon wagon = this.wagonManager.getWagon(repository.getProtocol());
-        if (readTimeOut > 0) {
-            wagon.setReadTimeout(readTimeOut);
-            getLog().info(
-                "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
-                    + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
-        }
+    /**
+     * Perform the get operation and outputs a bunch of debug messages
+     * @param source the source to download data from
+     * @param outputFile the output destination
+     * @param retries number of times that query will be retried
+     * @throws Exception
+     */
+    private void doGet(final URL source, final File outputFile, final int retries) throws Exception {
         ConsoleDownloadMonitor downloadMonitor = null;
-        if (this.session.getSettings().isInteractiveMode()) {
-            downloadMonitor = new ConsoleDownloadMonitor(this.getLog());
-            wagon.addTransferListener(downloadMonitor);
+        final Repository repository = getRepositoryFor(source);
+        if (session.getSettings().isInteractiveMode()) {
+            downloadMonitor = new ConsoleDownloadMonitor(getLog());
         }
-
-        AuthenticationInfo authenticationInfo = new AuthenticationInfo();
-        if (StringUtils.isNotBlank(username)) {
-            getLog().debug("providing custom authentication");
-            getLog().debug("username: " + username + " and password: ***");
-            authenticationInfo.setUserName(username);
-            authenticationInfo.setPassword(password);
-        } else if (StringUtils.isNotBlank(serverId)) {
-            getLog().debug("providing custom authentication for " + serverId);
-            Server server = settings.getServer(serverId);
-            if (server == null)
-                throw new MojoExecutionException(String.format("Server %s not found", serverId));
-            getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
-            authenticationInfo.setUserName(server.getUsername());
-            authenticationInfo.setPassword(server.getPassword());
+        // Creating client on-demand to allow easy retry
+        final HttpClient client = getHttpClient(repository, retries);
+        final HttpGet getRequest = new HttpGet(source.toURI());
+        if(getLog().isDebugEnabled()) {
+            final StringBuilder sOut = new StringBuilder();
+            sOut.append("running ").append(getRequest).append("\n");
+            sOut.append("query headers :\n").append(appendHeaders(getRequest.getAllHeaders()));
+            sOut.append("query parameters can't be obtained, sorry\n");
+            getLog().debug(sOut);
         }
-
-        ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
-
-        wagon.connect(repository, authenticationInfo, proxyInfo);
-        wagon.get(file, outputFile);
-        wagon.disconnect();
-        if (downloadMonitor != null) {
-            wagon.removeTransferListener(downloadMonitor);
+        downloadMonitor.transferInitiated(outputFile.getName(), source.toString(), TransferEvent.REQUEST_GET);
+        final HttpResponse response = client.execute(getRequest);
+        // Put some more log info about response before to consume content
+        if(getLog().isDebugEnabled()) {
+            final StringBuilder sOut = new StringBuilder("query executed with result\n");
+            final StatusLine status = response.getStatusLine();
+            sOut.append(status.getProtocolVersion().toString()).append("\t").append(status.getStatusCode()).append(" ").append(status.getReasonPhrase()).append("\n");
+            sOut.append("response headers :\n");
+            sOut.append(appendHeaders(response.getAllHeaders()));
+            getLog().debug(sOut);
         }
+        // now make sure result was OK (if not an exception will be thrown)
+        final int statusCode = response.getStatusLine().getStatusCode();
+        if(statusCode>=200 && statusCode<300) {
+            final HttpEntity entity = response.getEntity();
+            if(getLog().isDebugEnabled()) {
+                final StringBuilder sOut = new StringBuilder("query entity content is\n");
+                sOut.append(appendHeaders(new Header[] {entity.getContentType(), entity.getContentEncoding()}));
+            }
+            // Now read entity content
+            final InputStream stream = entity.getContent();
+            final BufferedInputStream bufferedInput = new BufferedInputStream(stream);
+            outputFile.createNewFile();
+            final OutputStream openOutputStream = downloadMonitor.decorate(FileUtils.openOutputStream(outputFile), entity.getContentLength());
+            try {
+                IOUtils.copy(bufferedInput,openOutputStream);
+            } finally {
+                downloadMonitor.transferCompleted(entity.getContentLength(), TransferEvent.REQUEST_GET);
+                openOutputStream.close();
+                bufferedInput.close();
+            }
+        } else {
+            throw new UnsupportedOperationException("server sent status code "+statusCode+" which we do not support");
+        }
+    }
+
+    private Repository getRepositoryFor(final URL source) {
+        final String urlStr = source.toString();
+        final String[] segments = urlStr.split("/");
+        final String file = segments[segments.length - 1];
+        final String repoUrl = urlStr.substring(0, urlStr.length() - file.length() - 1);
+        return new Repository(repoUrl, repoUrl);
+    }
+
+
+    /**
+     * Construct the http client with the specified number of retries
+     * @param repository
+     * @param retries number of times the query will be re-send to server
+     * @return a working HTTP client
+     * @throws MojoExecutionException
+     */
+    private HttpClient getHttpClient(final Repository repository, final int retries) throws MojoExecutionException {
+        final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+        // Authentication
+        if (StringUtils.isNotBlank(username)||StringUtils.isNotBlank(serverId)) {
+            String username = null;
+            String password = null;
+            if (StringUtils.isNotBlank(this.username)) {
+                getLog().debug("providing custom authentication");
+                getLog().debug("username: " + this.username + " and password: ***");
+                username = this.username;
+                password = this.password;
+            } else if (StringUtils.isNotBlank(serverId)) {
+                getLog().debug("providing custom authentication for " + serverId);
+                final Server server = settings.getServer(serverId);
+                if (server == null) {
+                    throw new MojoExecutionException(String.format("Server %s not found", serverId));
+                }
+                getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
+                username = server.getUsername();
+                password = server.getPassword();
+            }
+            credentialsProvider.setCredentials(
+                    new AuthScope(repository.getHost(), repository.getPort()),
+                    new UsernamePasswordCredentials(username, password));
+        }
+        // Timeout
+        final Builder requestConfigBuilder = RequestConfig.custom()
+                .setSocketTimeout(readTimeOut)
+                .setConnectTimeout(readTimeOut)
+                .setConnectionRequestTimeout(readTimeOut);
+        // Proxy
+        // TODO is it always valid ?
+        final ProxyInfo proxyInfo = wagonManager.getProxy(repository.getProtocol());
+        // TODO what to do of proxy auth ? Maven and http client do not seems to share the same config mechanism
+        requestConfigBuilder.setProxy(new HttpHost(proxyInfo.getHost(), repository.getPort(), repository.getProtocol()));
+
+        final CloseableHttpClient httpclient = HttpClients.custom()
+                .setDefaultRequestConfig(requestConfigBuilder.build())
+                .setDefaultCredentialsProvider(credentialsProvider)
+                .build();
+        return httpclient;
+    }
+
+    /**
+     * Append headers to a string, for easier reading
+     * @param headers
+     * @return
+     */
+    private StringBuilder appendHeaders(final Header[] headers) {
+        final StringBuilder sOut = new StringBuilder();
+        for(final Header h : headers) {
+            sOut.append(h).append("\n");
+        }
+        return sOut;
     }
 }
