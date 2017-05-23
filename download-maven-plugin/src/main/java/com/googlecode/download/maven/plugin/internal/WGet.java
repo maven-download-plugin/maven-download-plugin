@@ -14,11 +14,29 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
-import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URI;
+import java.net.URL;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.StatusLine;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -28,16 +46,14 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
-import org.apache.maven.wagon.Wagon;
-import org.apache.maven.wagon.authentication.AuthenticationInfo;
-import org.apache.maven.wagon.proxy.ProxyInfo;
-import org.apache.maven.wagon.repository.Repository;
+import org.apache.maven.wagon.events.TransferEvent;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.StringUtils;
+
+import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
@@ -47,6 +63,22 @@ import org.codehaus.plexus.util.StringUtils;
  */
 @Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false)
 public class WGet extends AbstractMojo {
+
+	/**
+	 * Codes coming from wikipedia (https://en.wikipedia.org/wiki/HTTP_codes)
+	 */
+	private static final List<Integer> ACCEPTED_HTTP_CODES = Arrays.asList(
+					200,
+					201,
+					202,
+					203,
+					204,
+					205,
+					206,
+					207,
+					208,
+					226,
+					230);
 
     /**
      * Represent the URL to fetch information from.
@@ -100,13 +132,13 @@ public class WGet extends AbstractMojo {
     @Parameter(defaultValue = "false")
     private boolean unpack;
 
-    /**
+	/**
      * Server Id from settings file to use for authentication
      * Only one of serverId or (username/password) may be supplied
      */
     @Parameter
     private String serverId;
-    
+
     /**
      * Custom username for the download
      */
@@ -177,37 +209,56 @@ public class WGet extends AbstractMojo {
     @Parameter(defaultValue = "${settings}", readonly = true, required = true)
     private Settings settings;
 
-    /**
-     * Method call whent he mojo is executed for the first time.
-     * @throws MojoExecutionException if an error is occuring in this mojo.
-     * @throws MojoFailureException if an error is occuring in this mojo.
-     */
-    public void execute() throws MojoExecutionException, MojoFailureException {
+	/**
+	 * Map of HTTP parameters to be used to download content. These properties are to be given as
+	 * &lt;httpParameters&gt;
+	 * 	&lt;aParameterName&gt;aParameterValue&lt;/aParameterName&gt;
+	 * &lt;httpParameters&gt;
+	 * @parameter
+	 */
+	private final Map<String, String> parameters = new HashMap<>();
+
+	/**
+	 * Map of HTTP headers to be used to download content. These properties are to be given as
+	 * &lt;httpHeaders&gt;
+	 * 	&lt;aHeaderName&gt;aParameterValue&lt;/aHeaderName&gt;
+	 * &lt;/httpHeaders&gt;
+	 * @parameter
+	 */
+	private final Map<String, String> headers = new HashMap<>();
+
+	/**
+	  * Method call whent he mojo is executed for the first time.
+	  * @throws MojoExecutionException if an error is occuring in this mojo.
+	  * @throws MojoFailureException if an error is occuring in this mojo.
+	  */
+	@Override
+	public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
-            getLog().info("maven-download-plugin:wget skipped");
-            return;
-        }
-        
+			getLog().info("maven-download-plugin:wget skipped");
+			return;
+		}
+
         if (StringUtils.isNotBlank(serverId) && (StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password))) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
-        
+
         if (settings == null) {
             getLog().warn("settings is null");
         }
         getLog().debug("Got settings");
-        if (retries < 1) {
-            throw new MojoFailureException("retries must be at least 1");
-        }
+		if (retries < 1) {
+			throw new MojoFailureException("retries must be at least 1");
+		}
 
-        // PREPARE
+		// PREPARE
         if (this.outputFileName == null) {
-            try {
+			try {
                 this.outputFileName = new File(this.uri.toURL().getFile()).getName();
             } catch (Exception ex) {
-                throw new MojoExecutionException("Invalid URL", ex);
-            }
-        }
+				throw new MojoExecutionException("Invalid URL", ex);
+			}
+		}
         if (this.cacheDirectory == null) {
             this.cacheDirectory = new File(this.session.getLocalRepository()
                 .getBasedir(), ".cache/download-maven-plugin");
@@ -217,8 +268,8 @@ public class WGet extends AbstractMojo {
         this.outputDirectory.mkdirs();
         File outputFile = new File(this.outputDirectory, this.outputFileName);
 
-        // DO
-        try {
+		// DO
+		try {
             boolean haveFile = outputFile.exists();
             if (haveFile) {
                 boolean signatureMatch = true;
@@ -273,7 +324,8 @@ public class WGet extends AbstractMojo {
                     boolean done = false;
                     while (!done && this.retries > 0) {
                         try {
-                            doGet(outputFile);
+                            doGet(uri.toURL(), outputFile,
+                            		parameters, headers, retries);
                             if (this.md5 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.md5,
                                     MessageDigest.getInstance("MD5"));
@@ -323,50 +375,94 @@ public class WGet extends AbstractMojo {
         outputFile.delete();
     }
 
-
-    private void doGet(File outputFile) throws Exception {
-        String urlStr = this.uri.toString();
-        String[] segments = urlStr.split("/");
-        String file = segments[segments.length - 1];
-        String repoUrl = urlStr.substring(0, urlStr.length() - file.length() - 1);
-        Repository repository = new Repository(repoUrl, repoUrl);
-
-        Wagon wagon = this.wagonManager.getWagon(repository.getProtocol());
-        if (readTimeOut > 0) {
-            wagon.setReadTimeout(readTimeOut);
-            getLog().info(
-                "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
-                    + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
-        }
+	/**
+	 * Perform the get operation and outputs a bunch of debug messages
+	 * @param source the source to download data from
+	 * @param outputFile the output destination
+	 * @param parameters http parameters used for that request
+	 * @param headers http headers used for that request
+	 * @param retries number of times that query will be retried
+	 * @throws Exception
+	 */
+	private void doGet(final URL source, final File outputFile, final Map<String, String> parameters, final Map<String, String> headers, final int retries) throws Exception {
         ConsoleDownloadMonitor downloadMonitor = null;
         if (this.session.getSettings().isInteractiveMode()) {
             downloadMonitor = new ConsoleDownloadMonitor(this.getLog());
-            wagon.addTransferListener(downloadMonitor);
         }
+		final HttpGet getRequest = new HttpGet(source.toURI());
+		// putting parameters in game
+		for(final Map.Entry<String, String> p : parameters.entrySet()) {
+			getRequest.getParams().setParameter(p.getKey(), p.getValue());
+		}
+		// and headers next to them
+		for(final Map.Entry<String, String> h : headers.entrySet()) {
+			getRequest.addHeader(h.getKey(), h.getValue());
+		}
+		if(getLog().isDebugEnabled()) {
+			final StringBuilder sOut = new StringBuilder();
+			sOut.append("running ").append(getRequest).append("\n");
+			sOut.append("query headers :\n").append(appendHeaders(getRequest.getAllHeaders()));
+			sOut.append("query parameters can't be obtained, sorry\n");
+			getLog().debug(sOut);
+		}
+		// Creating client on-demand to allow easy retry
+		final HttpClient client = getHttpClient(retries);
+		downloadMonitor.transferInitiated(outputFile.getName(), source.toString(), TransferEvent.REQUEST_GET);
+		final HttpResponse response = client.execute(getRequest);
+		// Put some more log info about response before to consume content
+		if(getLog().isDebugEnabled()) {
+			final StringBuilder sOut = new StringBuilder("query executed with result\n");
+			final StatusLine status = response.getStatusLine();
+			sOut.append(status.getProtocolVersion().toString()).append("\t").append(status.getStatusCode()).append(" ").append(status.getReasonPhrase()).append("\n");
+			sOut.append("response headers :\n");
+			sOut.append(appendHeaders(response.getAllHeaders()));
+			getLog().debug(sOut);
+		}
+		// now make sure result was OK (if not an exception will be thrown
+		if(ACCEPTED_HTTP_CODES.contains(response.getStatusLine().getStatusCode())) {
+			final HttpEntity entity = response.getEntity();
+			if(getLog().isDebugEnabled()) {
+				final StringBuilder sOut = new StringBuilder("query entity content is\n");
+				sOut.append(appendHeaders(new Header[] {entity.getContentType(), entity.getContentEncoding()}));
+			}
+			// Now read entity content
+			final InputStream stream = entity.getContent();
+			final BufferedInputStream bufferedInput = new BufferedInputStream(stream);
+			outputFile.createNewFile();
+			final OutputStream openOutputStream = downloadMonitor.decorate(FileUtils.openOutputStream(outputFile), entity.getContentLength());
+			try {
+				IOUtils.copy(bufferedInput,openOutputStream);
+			} finally {
+				downloadMonitor.transferCompleted(entity.getContentLength(), TransferEvent.REQUEST_GET);
+				openOutputStream.close();
+				bufferedInput.close();
+			}
+		} else {
+			throw new UnsupportedOperationException("server sent status code "+response.getStatusLine().getStatusCode()+" which we do not support");
+		}
+	}
 
-        AuthenticationInfo authenticationInfo = new AuthenticationInfo();
-        if (StringUtils.isNotBlank(username)) {
-            getLog().debug("providing custom authentication");
-            getLog().debug("username: " + username + " and password: ***");
-            authenticationInfo.setUserName(username);
-            authenticationInfo.setPassword(password);
-        } else if (StringUtils.isNotBlank(serverId)) {
-            getLog().debug("providing custom authentication for " + serverId);
-            Server server = settings.getServer(serverId);
-            if (server == null)
-                throw new MojoExecutionException(String.format("Server %s not found", serverId));
-            getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
-            authenticationInfo.setUserName(server.getUsername());
-            authenticationInfo.setPassword(server.getPassword());
-        }
+	/**
+	 * Construct the http client with the specified number of retries
+	 * @param retries number of times the query will be re-send to server
+	 * @return a working HTTP client
+	 */
+	private HttpClient getHttpClient(final int retries) {
+		final DefaultHttpClient returned = new DefaultHttpClient();
+		returned.setHttpRequestRetryHandler(new DefaultHttpRequestRetryHandler(retries, false));
+		return returned;
+	}
 
-        ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
-
-        wagon.connect(repository, authenticationInfo, proxyInfo);
-        wagon.get(file, outputFile);
-        wagon.disconnect();
-        if (downloadMonitor != null) {
-            wagon.removeTransferListener(downloadMonitor);
-        }
-    }
+	/**
+	 * Append headers to a string, for easier reading
+	 * @param headers
+	 * @return
+	 */
+	private StringBuilder appendHeaders(final Header[] headers) {
+		final StringBuilder sOut = new StringBuilder();
+		for(final Header h : headers) {
+			sOut.append(h).append("\n");
+		}
+		return sOut;
+	}
 }
