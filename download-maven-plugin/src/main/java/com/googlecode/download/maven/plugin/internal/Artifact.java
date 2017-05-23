@@ -104,6 +104,12 @@ public class Artifact extends AbstractMojo {
     private boolean unpack;
 
     /**
+     * Whether to skip execution of Mojo
+     */
+    @Parameter(property = "download.plugin.skip", defaultValue = "false")
+    private boolean skip;
+
+    /**
      * The dependency depth to query. Will try to fetch the artifact for as much
      * as the number of dependency specified.
      */
@@ -138,6 +144,10 @@ public class Artifact extends AbstractMojo {
      * @see org.apache.maven.plugin.Mojo#execute()
      */
     public void execute() throws MojoExecutionException, MojoFailureException {
+        if (this.skip) {
+            getLog().info("maven-download-plugin:artifact skipped");
+            return;
+        }
         if (this.dependencyDepth > 0 && this.outputFileName != null) {
             throw new MojoFailureException("Cannot have a dependency depth higher than 0 and an outputFileName");
         }
