@@ -92,6 +92,6 @@ Alternatively, this project support GitHub PR, but enforce some rules for decent
 
 ## Other links
 
-Project metrics on Ohloh: [![Ohloh](https://www.ohloh.net/p/maven-download-plugin/widgets/project_partner_badge.gif)](https://www.ohloh.net/p/maven-download-plugin)
+Project metrics on Ohloh: [![Ohloh](https://www.ohloh.net/p/download-maven-plugin/widgets/project_partner_badge.gif)](https://www.ohloh.net/p/download-maven-plugin)
 
 Former project page at Google Code: http://code.google.com/p/maven-download-plugin/
