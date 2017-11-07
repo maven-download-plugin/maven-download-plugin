@@ -218,13 +218,13 @@
 					<minimumTokens>100</minimumTokens>
 					<rulesets>
 						<!-- Rule sets that come bundled with PMD -->
-						<ruleset>/rulesets/basic.xml</ruleset>
-						<ruleset>/rulesets/braces.xml</ruleset>
-						<ruleset>/rulesets/finalizers.xml</ruleset>
-						<ruleset>/rulesets/imports.xml</ruleset>
-						<ruleset>/rulesets/migrating.xml</ruleset>
-						<ruleset>/rulesets/strings.xml</ruleset>
-						<ruleset>/rulesets/unusedcode.xml</ruleset>
+						<ruleset>/rulesets/java/basic.xml</ruleset>
+						<ruleset>/rulesets/java/braces.xml</ruleset>
+						<ruleset>/rulesets/java/finalizers.xml</ruleset>
+						<ruleset>/rulesets/java/imports.xml</ruleset>
+						<ruleset>/rulesets/java/migrating.xml</ruleset>
+						<ruleset>/rulesets/java/strings.xml</ruleset>
+						<ruleset>/rulesets/java/unusedcode.xml</ruleset>
 					</rulesets>
 				</configuration>
 			</plugin>
