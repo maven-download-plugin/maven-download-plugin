@@ -252,7 +252,7 @@ public class WGet extends AbstractMojo {
                 }
 
                 // TODO verify last modification date
-                if (!signatureMatch) {
+                if (!signatureMatch || (overwrite && haveFile)) {
                     outputFile.delete();
                     haveFile = false;
                 } else if (!overwrite) {
@@ -268,6 +268,7 @@ public class WGet extends AbstractMojo {
                 File cached = cache.getArtifact(this.uri, this.md5, this.sha1, this.sha512);
                 if (!this.skipCache && cached != null && cached.exists()) {
                     getLog().info("Got from cache: " + cached.getAbsolutePath());
+                    getLog().info("To download a fresh copy pass -Ddownload.plugin.skipCache=true to the maven build");
                     Files.copy(cached.toPath(), outputFile.toPath());
                 } else {
                     boolean done = false;
