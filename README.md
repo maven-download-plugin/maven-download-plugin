@@ -65,12 +65,12 @@ It provides caching and signature verification.
 
 To get basic plugin help, type in the command : 
 ```
-mvn help:describe -Dplugin=com.googlecode.maven-download-plugin:maven-download-plugin
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:help
 ```
 
 To get a more detailed help, type command : 
 ```
-mvn help:describe -Dplugin=com.googlecode.maven-download-plugin:maven-download-plugin -Ddetail
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
 ### Generated documentation
 
