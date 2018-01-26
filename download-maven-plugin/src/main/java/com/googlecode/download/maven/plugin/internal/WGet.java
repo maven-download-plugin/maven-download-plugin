@@ -38,6 +38,8 @@ import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.StringUtils;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
@@ -176,6 +178,12 @@ public class WGet extends AbstractMojo {
 
     @Parameter(defaultValue = "${settings}", readonly = true, required = true)
     private Settings settings;
+
+    /**
+     * Maven Security Dispatcher
+     */
+    @Component( hint = "mng-4384" )
+    private SecDispatcher securityDispatcher;
 
     /**
      * Method call whent he mojo is executed for the first time.
@@ -357,7 +365,7 @@ public class WGet extends AbstractMojo {
                 throw new MojoExecutionException(String.format("Server %s not found", serverId));
             getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
             authenticationInfo.setUserName(server.getUsername());
-            authenticationInfo.setPassword(server.getPassword());
+            authenticationInfo.setPassword(decrypt(server.getPassword(), serverId));
         }
 
         ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
@@ -367,6 +375,16 @@ public class WGet extends AbstractMojo {
         wagon.disconnect();
         if (downloadMonitor != null) {
             wagon.removeTransferListener(downloadMonitor);
+        }
+    }
+
+    private String decrypt(String str, String server) {
+        try  {
+            return securityDispatcher.decrypt(str);
+        }
+        catch(SecDispatcherException e) {
+            getLog().warn(String.format("Failed to decrypt password/passphrase for server %s, using auth token as is", server), e);
+            return str;
         }
     }
 }
