@@ -136,7 +136,7 @@ public class WGet extends AbstractMojo {
     /**
      * Download file without polling cache
      */
-    @Parameter(defaultValue = "false")
+    @Parameter(property = "download.plugin.skip.cache", defaultValue = "false")
     private boolean skipCache;
 
     /**
