@@ -99,7 +99,7 @@ public class WGet extends AbstractMojo {
     /**
      * Whether to unpack the file in case it is an archive (.zip)
      */
-    @Parameter(defaultValue = "false")
+    @Parameter(property = "download.unpack", defaultValue = "false")
     private boolean unpack;
 
     /**
