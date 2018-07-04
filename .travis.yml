@@ -8,8 +8,8 @@ env:
     - MAVEN_OPTS="-XX:MaxPermSize=256m -Xmx512m"
     - JAVA_OPTS="-XX:MaxPermSize=256m -Xmx512m"
 jdk:
-  - oraclejdk7
-  - openjdk7
+  - oraclejdk8
+  - openjdk8
 before_script:
   - cd download-maven-plugin
 script:
