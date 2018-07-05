@@ -10,8 +10,6 @@ env:
 jdk:
   - oraclejdk8
   - openjdk8
-before_script:
-  - cd download-maven-plugin
 script:
   - mvn clean install --batch-mode --errors
   - mvn verify -Pits --batch-mode --errors
