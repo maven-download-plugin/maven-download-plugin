@@ -57,6 +57,7 @@ import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.StringUtils;
+import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 
@@ -148,7 +149,7 @@ public class WGet extends AbstractMojo {
      */
     @Parameter
     private String serverId;
-    
+
     /**
      * Custom username for the download
      */
@@ -216,6 +217,9 @@ public class WGet extends AbstractMojo {
     @Component
     private WagonManager wagonManager;
 
+    @Component
+    private BuildContext buildContext;
+
     @Parameter(defaultValue = "${settings}", readonly = true, required = true)
     private Settings settings;
 
@@ -230,16 +234,17 @@ public class WGet extends AbstractMojo {
      * @throws MojoExecutionException if an error is occuring in this mojo.
      * @throws MojoFailureException if an error is occuring in this mojo.
      */
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    @Override
+	public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
             getLog().info("maven-download-plugin:wget skipped");
             return;
         }
-        
+
         if (StringUtils.isNotBlank(serverId) && (StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password))) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
-        
+
         if (settings == null) {
             getLog().warn("settings is null");
         }
@@ -356,6 +361,9 @@ public class WGet extends AbstractMojo {
             cache.install(this.uri, outputFile, this.md5, this.sha1, this.sha512);
             if (this.unpack) {
                 unpack(outputFile);
+                buildContext.refresh(outputDirectory);
+            } else {
+            	buildContext.refresh(outputFile);
             }
         } catch (Exception ex) {
             throw new MojoExecutionException("IO Error", ex);
