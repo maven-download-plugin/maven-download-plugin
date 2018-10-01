@@ -126,7 +126,7 @@ public class Artifact extends AbstractMojo {
     private ArtifactResolver resolver;
 
     @Component
-    private ArtifactMetadataSource metadatSource;
+    private ArtifactMetadataSource metadataSource;
 
     @Component
     private MavenProjectBuilder mavenProjectBuilder;
@@ -153,6 +153,7 @@ public class Artifact extends AbstractMojo {
         }
         org.apache.maven.artifact.Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
         downloadAndAddArtifact(artifact, dependencyDepth);
+        createOutputDirectoryIfNecessary();
         for (org.apache.maven.artifact.Artifact copy : this.artifactToCopy) {
             if (this.unpack) {
                 this.unpackFileToDirectory(copy);
@@ -201,7 +202,7 @@ public class Artifact extends AbstractMojo {
     /**
      * Will copy the specified artifact into the output directory.
      * @param artifact The artifact already resolved to be copied.
-     * @throws MojoFailureException If an error hapen while copying the file.
+     * @throws MojoFailureException If an error happened while copying the file.
      */
     private void copyFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoFailureException {
         File toCopy = artifact.getFile();
@@ -225,9 +226,6 @@ public class Artifact extends AbstractMojo {
     }
 
     private void unpackFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoExecutionException {
-        if (!this.outputDirectory.exists()) {
-            this.outputDirectory.mkdirs();
-        }
         File toUnpack = artifact.getFile();
         if (toUnpack != null && toUnpack.exists() && toUnpack.isFile()) {
             try {
@@ -238,6 +236,12 @@ public class Artifact extends AbstractMojo {
             } catch (Exception ex) {
                 throw new MojoExecutionException("Issue while unarchiving", ex);
             }
+        }
+    }
+
+    private void createOutputDirectoryIfNecessary() {
+        if (this.outputDirectory != null && !this.outputDirectory.exists()) {
+            this.outputDirectory.mkdirs();
         }
     }
 
@@ -259,7 +263,7 @@ public class Artifact extends AbstractMojo {
             MavenProject pomProject = mavenProjectBuilder.buildFromRepository(pomArtifact, this.remoteRepositories, this.localRepository);
             Set<org.apache.maven.artifact.Artifact> dependents = pomProject.createArtifacts(this.artifactFactory, null, null);
             ArtifactResolutionResult result = resolver.resolveTransitively(dependents, pomArtifact, this.localRepository, this.remoteRepositories,
-                this.metadatSource, null);
+                this.metadataSource, null);
             if (result != null) {
                 getLog().debug("Found transitive dependency : " + result);
                 return result.getArtifacts();
