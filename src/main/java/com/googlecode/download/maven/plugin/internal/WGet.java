@@ -26,6 +26,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.config.RegistryBuilder;
@@ -385,12 +386,12 @@ public class WGet extends AbstractMojo {
             requestConfig = RequestConfig.DEFAULT;
         }
 
-        final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
-
+        CredentialsProvider credentialsProvider = null;
         if (StringUtils.isNotBlank(username)) {
             getLog().debug("providing custom authentication");
             getLog().debug("username: " + username + " and password: ***");
 
+            credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(
                     new AuthScope(this.uri.getHost(), this.uri.getPort()),
                     new UsernamePasswordCredentials(username, password));
@@ -403,6 +404,7 @@ public class WGet extends AbstractMojo {
             }
             getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
 
+            credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(
                     new AuthScope(this.uri.getHost(), this.uri.getPort()),
                     new UsernamePasswordCredentials(server.getUsername(), decrypt(server.getPassword(), serverId)));
@@ -425,6 +427,9 @@ public class WGet extends AbstractMojo {
                             proxyInfo.getPassword());
                 }
                 AuthScope authScope = new AuthScope(proxyInfo.getHost(), proxyInfo.getPort());
+                if (credentialsProvider == null) {
+                    credentialsProvider = new BasicCredentialsProvider();
+                }
                 credentialsProvider.setCredentials(authScope, creds);
             }
         } else {
@@ -439,11 +444,14 @@ public class WGet extends AbstractMojo {
 
         final HttpFileRequester fileRequester = new HttpFileRequester(
                 httpClient,
-                this.session.getSettings().isInteractiveMode() ? getLog() : null);
+                this.session.getSettings().isInteractiveMode() ?
+                        new LoggingProgressReport(getLog()) : new SilentProgressReport(getLog()));
 
         final HttpClientContext clientContext = HttpClientContext.create();
         clientContext.setRequestConfig(requestConfig);
-        clientContext.setCredentialsProvider(credentialsProvider);
+        if (credentialsProvider != null) {
+            clientContext.setCredentialsProvider(credentialsProvider);
+        }
 
         fileRequester.download(this.uri, outputFile, clientContext);
     }
