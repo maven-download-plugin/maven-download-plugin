@@ -14,11 +14,32 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
-import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import java.io.File;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.NTCredentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -30,16 +51,15 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
-import org.apache.maven.wagon.Wagon;
-import org.apache.maven.wagon.authentication.AuthenticationInfo;
 import org.apache.maven.wagon.proxy.ProxyInfo;
-import org.apache.maven.wagon.repository.Repository;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
+
+import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
@@ -49,6 +69,25 @@ import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
  */
 @Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false)
 public class WGet extends AbstractMojo {
+
+    private static final PoolingHttpClientConnectionManager CONN_POOL;
+
+    static {
+        CONN_POOL = new PoolingHttpClientConnectionManager(
+                RegistryBuilder.<ConnectionSocketFactory>create()
+                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                        .register("https", new SSLConnectionSocketFactory(
+                                SSLContexts.createSystemDefault(),
+                                new String[] { "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2" },
+                                null,
+                                SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
+                        .build(),
+                null,
+                null,
+                null,
+                1,
+                TimeUnit.MINUTES);
+    }
 
     /**
      * Represent the URL to fetch information from.
@@ -332,50 +371,81 @@ public class WGet extends AbstractMojo {
     }
 
 
-    private void doGet(File outputFile) throws Exception {
-        String urlStr = this.uri.toString();
-        String[] segments = urlStr.split("/");
-        String file = segments[segments.length - 1];
-        String repoUrl = urlStr.substring(0, urlStr.length() - file.length() - 1);
-        Repository repository = new Repository(repoUrl, repoUrl);
-
-        Wagon wagon = this.wagonManager.getWagon(repository.getProtocol());
+    private void doGet(final File outputFile) throws Exception {
+        final RequestConfig requestConfig;
         if (readTimeOut > 0) {
-            wagon.setReadTimeout(readTimeOut);
             getLog().info(
-                "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
-                    + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
-        }
-        ConsoleDownloadMonitor downloadMonitor = null;
-        if (this.session.getSettings().isInteractiveMode()) {
-            downloadMonitor = new ConsoleDownloadMonitor(this.getLog());
-            wagon.addTransferListener(downloadMonitor);
+                    "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
+                            + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
+            requestConfig = RequestConfig.custom()
+                    .setConnectTimeout(readTimeOut)
+                    .setSocketTimeout(readTimeOut)
+                    .build();
+        } else {
+            requestConfig = RequestConfig.DEFAULT;
         }
 
-        AuthenticationInfo authenticationInfo = new AuthenticationInfo();
+        final BasicCredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+
         if (StringUtils.isNotBlank(username)) {
             getLog().debug("providing custom authentication");
             getLog().debug("username: " + username + " and password: ***");
-            authenticationInfo.setUserName(username);
-            authenticationInfo.setPassword(password);
+
+            credentialsProvider.setCredentials(
+                    new AuthScope(this.uri.getHost(), this.uri.getPort()),
+                    new UsernamePasswordCredentials(username, password));
+
         } else if (StringUtils.isNotBlank(serverId)) {
             getLog().debug("providing custom authentication for " + serverId);
             Server server = settings.getServer(serverId);
-            if (server == null)
+            if (server == null) {
                 throw new MojoExecutionException(String.format("Server %s not found", serverId));
+            }
             getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
-            authenticationInfo.setUserName(server.getUsername());
-            authenticationInfo.setPassword(decrypt(server.getPassword(), serverId));
+
+            credentialsProvider.setCredentials(
+                    new AuthScope(this.uri.getHost(), this.uri.getPort()),
+                    new UsernamePasswordCredentials(server.getUsername(), decrypt(server.getPassword(), serverId)));
+
         }
 
-        ProxyInfo proxyInfo = this.wagonManager.getProxy(repository.getProtocol());
-
-        wagon.connect(repository, authenticationInfo, proxyInfo);
-        wagon.get(file, outputFile);
-        wagon.disconnect();
-        if (downloadMonitor != null) {
-            wagon.removeTransferListener(downloadMonitor);
+        final HttpRoutePlanner routePlanner;
+        ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
+        if (proxyInfo != null && proxyInfo.getHost() != null && ProxyInfo.PROXY_HTTP.equals(proxyInfo.getType())) {
+            routePlanner = new DefaultProxyRoutePlanner(new HttpHost(proxyInfo.getHost(), proxyInfo.getPort()));
+            if (proxyInfo.getUserName() != null) {
+                final Credentials creds;
+                if (proxyInfo.getNtlmHost() != null || proxyInfo.getNtlmDomain() != null) {
+                    creds = new NTCredentials(proxyInfo.getUserName(),
+                            proxyInfo.getPassword(),
+                            proxyInfo.getNtlmHost(),
+                            proxyInfo.getNtlmDomain());
+                } else {
+                    creds = new UsernamePasswordCredentials(proxyInfo.getUserName(),
+                            proxyInfo.getPassword());
+                }
+                AuthScope authScope = new AuthScope(proxyInfo.getHost(), proxyInfo.getPort());
+                credentialsProvider.setCredentials(authScope, creds);
+            }
+        } else {
+            routePlanner = new SystemDefaultRoutePlanner(ProxySelector.getDefault());
         }
+
+        final CloseableHttpClient httpClient = HttpClientBuilder.create()
+                .setConnectionManager(CONN_POOL)
+                .setConnectionManagerShared(true)
+                .setRoutePlanner(routePlanner)
+                .build();
+
+        final HttpFileRequester fileRequester = new HttpFileRequester(
+                httpClient,
+                this.session.getSettings().isInteractiveMode() ? getLog() : null);
+
+        final HttpClientContext clientContext = HttpClientContext.create();
+        clientContext.setRequestConfig(requestConfig);
+        clientContext.setCredentialsProvider(credentialsProvider);
+
+        fileRequester.download(this.uri, outputFile, clientContext);
     }
 
     private String decrypt(String str, String server) {
