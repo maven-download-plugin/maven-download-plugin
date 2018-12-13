@@ -29,6 +29,9 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.protocol.HttpContext;
 
+/**
+ * File requester that can download resources over HTTP transport using Apache HttpClient 4.x.
+ */
 public class HttpFileRequester {
 
     private final CloseableHttpClient httpClient;
@@ -39,6 +42,13 @@ public class HttpFileRequester {
         this.progressReport = progressReport;
     }
 
+    /**
+     * Downloads the resource with the given URI to the specified local file system location.
+     *
+     * @param uri the target URI
+     * @param outputFile the output file
+     * @param clientContext the HTTP execution context.
+     */
     public void download(final URI uri, final File outputFile, final HttpContext clientContext) throws Exception {
         final HttpGet httpGet = new HttpGet(uri);
         httpClient.execute(httpGet, new ResponseHandler<Void>() {

@@ -19,6 +19,9 @@ import java.net.URI;
 
 import org.apache.maven.plugin.logging.Log;
 
+/**
+ * {@link ProgressReport} implementation that logs operation progress at INFO priority.
+ */
 public final class LoggingProgressReport implements ProgressReport {
 
     private static final long KBYTE = 1024L;

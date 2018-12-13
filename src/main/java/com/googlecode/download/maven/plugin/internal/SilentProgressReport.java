@@ -19,6 +19,10 @@ import java.net.URI;
 
 import org.apache.maven.plugin.logging.Log;
 
+/**
+ * Silent (no-op) implementation of {@link ProgressReport}. Only errors will get logged
+ * at ERROR priority.
+ */
 public final class SilentProgressReport implements ProgressReport {
 
     private final Log log;
