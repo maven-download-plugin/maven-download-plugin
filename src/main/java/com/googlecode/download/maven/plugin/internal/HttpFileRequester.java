@@ -21,11 +21,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
 
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.client.utils.URIUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.protocol.HttpContext;
 
@@ -49,18 +54,42 @@ public class HttpFileRequester {
      * @param outputFile the output file
      * @param clientContext the HTTP execution context.
      */
-    public void download(final URI uri, final File outputFile, final HttpContext clientContext) throws Exception {
+    public File download(final URI uri, final boolean fixedOutputFileName, final File outputFile, final HttpClientContext clientContext) throws Exception {
         final HttpGet httpGet = new HttpGet(uri);
-        httpClient.execute(httpGet, new ResponseHandler<Void>() {
+        return httpClient.execute(httpGet, new ResponseHandler<File>() {
 
             @Override
-            public Void handleResponse(final HttpResponse response) throws IOException {
+            public File handleResponse(final HttpResponse response) throws IOException {
                 final HttpEntity entity = response.getEntity();
                 if (entity != null) {
+
+                    // check if we were redirected to the resource
+                    File actualOutputFile = null;
+                    if (!fixedOutputFileName) {
+                        final HttpHost target = clientContext.getTargetHost();
+                        final List<URI> redirectLocations = clientContext.getRedirectLocations();
+                        if (redirectLocations != null) {
+                            try {
+                                final URI ultimateLocation = URIUtils.resolve(httpGet.getURI(), target, redirectLocations);
+                                if (!ultimateLocation.equals(uri)) {
+                                    // we were redirected, use the name from the redirected URI
+                                    final String outputFileName = new File(ultimateLocation.toURL().getFile()).getName();
+                                    actualOutputFile = new File(outputFile.getParentFile(), outputFileName);
+                                }
+                            } catch (URISyntaxException ex) {
+                                throw new IOException(ex);
+                            }
+                        }
+                    }
+
+                    if (actualOutputFile == null) {
+                        actualOutputFile = outputFile;
+                    }
+
                     progressReport.initiate(uri, entity.getContentLength());
 
                     byte[] tmp = new byte[8 * 11024];
-                    try (InputStream in = entity.getContent(); OutputStream out = new FileOutputStream(outputFile)) {
+                    try (InputStream in = entity.getContent(); OutputStream out = new FileOutputStream(actualOutputFile)) {
                         int bytesRead;
                         while ((bytesRead = in.read(tmp)) != -1) {
                             out.write(tmp, 0, bytesRead);
@@ -68,6 +97,8 @@ public class HttpFileRequester {
                         }
                         out.flush();
                         progressReport.completed();
+
+                        return actualOutputFile;
 
                     } catch (IOException ex) {
                         progressReport.error(ex);

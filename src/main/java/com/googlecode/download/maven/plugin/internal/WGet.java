@@ -258,9 +258,11 @@ public class WGet extends AbstractMojo {
         }
 
         // PREPARE
+        boolean fixedOutputFileName = true;
         if (this.outputFileName == null) {
             try {
                 this.outputFileName = new File(this.uri.toURL().getFile()).getName();
+                fixedOutputFileName = false;
             } catch (Exception ex) {
                 throw new MojoExecutionException("Invalid URL", ex);
             }
@@ -330,7 +332,7 @@ public class WGet extends AbstractMojo {
                     boolean done = false;
                     while (!done && this.retries > 0) {
                         try {
-                            doGet(outputFile);
+                            outputFile = doGet(fixedOutputFileName, outputFile);
                             if (this.md5 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.md5,
                                     MessageDigest.getInstance("MD5"));
@@ -395,7 +397,7 @@ public class WGet extends AbstractMojo {
     }
 
 
-    private void doGet(final File outputFile) throws Exception {
+    private File doGet(final boolean fixedOutputFileName, final File outputFile) throws Exception {
         final RequestConfig requestConfig;
         if (readTimeOut > 0) {
             getLog().info(
@@ -476,7 +478,7 @@ public class WGet extends AbstractMojo {
             clientContext.setCredentialsProvider(credentialsProvider);
         }
 
-        fileRequester.download(this.uri, outputFile, clientContext);
+        return fileRequester.download(this.uri, fixedOutputFileName, outputFile, clientContext);
     }
 
     private String decrypt(String str, String server) {
