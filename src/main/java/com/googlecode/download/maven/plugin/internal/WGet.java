@@ -17,18 +17,21 @@ package com.googlecode.download.maven.plugin.internal;
 import java.io.File;
 import java.net.ProxySelector;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.http.HttpHost;
+import org.apache.http.*;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.client.utils.URIUtils;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -36,11 +39,15 @@ import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+import org.apache.http.protocol.HttpContext;
 import org.apache.http.ssl.SSLContexts;
+import org.apache.http.util.Args;
+import org.apache.http.util.Asserts;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -330,9 +337,10 @@ public class WGet extends AbstractMojo {
                     Files.copy(cached.toPath(), outputFile.toPath());
                 } else {
                     boolean done = false;
+                    final RedirectStrategy redirectStrategy = this.skipCache ? null : new RedirectIfNotInCache(cache);
                     while (!done && this.retries > 0) {
                         try {
-                            outputFile = doGet(fixedOutputFileName, outputFile);
+                            outputFile = doGet(redirectStrategy, fixedOutputFileName, outputFile);
                             if (this.md5 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.md5,
                                     MessageDigest.getInstance("MD5"));
@@ -397,7 +405,7 @@ public class WGet extends AbstractMojo {
     }
 
 
-    private File doGet(final boolean fixedOutputFileName, final File outputFile) throws Exception {
+    private File doGet(/*@Nullable*/ final RedirectStrategy redirectStrategy, final boolean fixedOutputFileName, final File outputFile) throws Exception {
         final RequestConfig requestConfig;
         if (readTimeOut > 0) {
             getLog().info(
@@ -465,6 +473,7 @@ public class WGet extends AbstractMojo {
                 .setConnectionManager(CONN_POOL)
                 .setConnectionManagerShared(true)
                 .setRoutePlanner(routePlanner)
+                .setRedirectStrategy(redirectStrategy)
                 .build();
 
         final HttpFileRequester fileRequester = new HttpFileRequester(
@@ -488,6 +497,92 @@ public class WGet extends AbstractMojo {
         catch(SecDispatcherException e) {
             getLog().warn(String.format("Failed to decrypt password/passphrase for server %s, using auth token as is", server), e);
             return str;
+        }
+    }
+
+    private class RedirectIfNotInCache extends DefaultRedirectStrategy {
+
+        private final DownloadCache cache;
+
+        /**
+         * @param cache the DownloadCache, or null if {@link WGet#skipCache} == true
+         */
+        private RedirectIfNotInCache(/* @Nullable */ final DownloadCache cache) {
+            this.cache = cache;
+        }
+
+        @Override
+        public boolean isRedirected(HttpRequest request, HttpResponse response, HttpContext context) throws ProtocolException {
+            final boolean redirected = super.isRedirected(request, response, context);
+
+            if (cache == null || !redirected) {
+                return redirected;
+            }
+
+            try {
+                final URI uri = getLocationURIForIsRedirect(request, response, context);
+                File cached = cache.getArtifact(uri, md5, sha1, sha512);
+                if (cached == null || !cached.exists()) {
+                    return redirected;
+                }
+
+                getLog().info("Got from cache: " + cached.getAbsolutePath());
+                final String outputFileName = new File(uri.toURL().getFile()).getName();
+                final File outputFile = new File(outputDirectory, outputFileName);
+                Files.copy(cached.toPath(), outputFile.toPath());
+
+                return false;
+            } catch (final Exception e) {
+                getLog().error(e.getMessage(), e);
+                throw new ProtocolException(e.getMessage(), e);
+            }
+        }
+
+        /**
+         * Similar to {@link DefaultRedirectStrategy#getLocationURI(HttpRequest, HttpResponse, HttpContext)}
+         * except that it does not modify the {@link HttpClientContext#REDIRECT_LOCATIONS}
+         */
+        private URI getLocationURIForIsRedirect(final HttpRequest request, final HttpResponse response, final HttpContext context) throws ProtocolException {
+            Args.notNull(request, "HTTP request");
+            Args.notNull(response, "HTTP response");
+            Args.notNull(context, "HTTP context");
+
+            final HttpClientContext clientContext = HttpClientContext.adapt(context);
+
+            //get the location header to find out where to redirect to
+            final Header locationHeader = response.getFirstHeader("location");
+            if (locationHeader == null) {
+                // got a redirect response, but no location header
+                throw new ProtocolException(
+                        "Received redirect response " + response.getStatusLine()
+                                + " but no location header");
+            }
+            final String location = locationHeader.getValue();
+
+            final RequestConfig config = clientContext.getRequestConfig();
+
+            URI uri = createLocationURI(location);
+
+            // rfc2616 demands the location value be a complete URI
+            // Location       = "Location" ":" absoluteURI
+            try {
+                if (!uri.isAbsolute()) {
+                    if (!config.isRelativeRedirectsAllowed()) {
+                        throw new ProtocolException("Relative redirect location '"
+                                + uri + "' not allowed");
+                    }
+                    // Adjust location URI
+                    final HttpHost target = clientContext.getTargetHost();
+                    Asserts.notNull(target, "Target host");
+                    final URI requestURI = new URI(request.getRequestLine().getUri());
+                    final URI absoluteRequestURI = URIUtils.rewriteURI(requestURI, target, false);
+                    uri = URIUtils.resolve(absoluteRequestURI, uri);
+                }
+            } catch (final URISyntaxException ex) {
+                throw new ProtocolException(ex.getMessage(), ex);
+            }
+
+            return uri;
         }
     }
 }

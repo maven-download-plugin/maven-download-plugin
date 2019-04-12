@@ -24,15 +24,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
+import org.apache.http.*;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.client.utils.URIUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.protocol.HttpContext;
 
 /**
  * File requester that can download resources over HTTP transport using Apache HttpClient 4.x.
@@ -84,6 +81,18 @@ public class HttpFileRequester {
 
                     if (actualOutputFile == null) {
                         actualOutputFile = outputFile;
+                    }
+
+                    // check if we were redirected, but we found the new location in the cache via {@link WGet#RedirectIfNotInCache}
+                    switch (response.getStatusLine().getStatusCode()) {
+                        case HttpStatus.SC_MOVED_TEMPORARILY:
+                        case HttpStatus.SC_MOVED_PERMANENTLY:
+                        case HttpStatus.SC_TEMPORARY_REDIRECT:
+                        case HttpStatus.SC_SEE_OTHER:
+                            return actualOutputFile;
+
+                        default:
+                            // continue
                     }
 
                     progressReport.initiate(uri, entity.getContentLength());
