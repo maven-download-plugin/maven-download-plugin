@@ -54,6 +54,7 @@ import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.codehaus.plexus.archiver.UnArchiver;
+import org.codehaus.plexus.archiver.gzip.GZipUnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.util.StringUtils;
@@ -374,7 +375,11 @@ public class WGet extends AbstractMojo {
     private void unpack(File outputFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
         unarchiver.setSourceFile(outputFile);
-        unarchiver.setDestDirectory(this.outputDirectory);
+        if (unarchiver instanceof GZipUnArchiver) {
+            unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.replaceFirst("(.+)\\.gz(?:ip)?$", "$1")));
+        } else {
+            unarchiver.setDestDirectory(this.outputDirectory);
+        }
         unarchiver.extract();
         outputFile.delete();
     }
