@@ -54,9 +54,12 @@ import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.codehaus.plexus.archiver.UnArchiver;
+import org.codehaus.plexus.archiver.bzip2.BZip2UnArchiver;
 import org.codehaus.plexus.archiver.gzip.GZipUnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
+import org.codehaus.plexus.archiver.snappy.SnappyUnArchiver;
+import org.codehaus.plexus.archiver.xz.XZUnArchiver;
 import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
@@ -375,13 +378,20 @@ public class WGet extends AbstractMojo {
     private void unpack(File outputFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
         unarchiver.setSourceFile(outputFile);
-        if (unarchiver instanceof GZipUnArchiver) {
-            unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.replaceFirst("(.+)\\.gz(?:ip)?$", "$1")));
+        if (isFileUnArchiver(unarchiver)) {
+            unarchiver.setDestFile(new File(this.outputDirectory, outputFileName.substring(0, outputFileName.lastIndexOf('.'))));
         } else {
             unarchiver.setDestDirectory(this.outputDirectory);
         }
         unarchiver.extract();
         outputFile.delete();
+    }
+
+    private boolean isFileUnArchiver(final UnArchiver unarchiver) {
+        return unarchiver instanceof  BZip2UnArchiver ||
+                unarchiver instanceof GZipUnArchiver ||
+                unarchiver instanceof SnappyUnArchiver ||
+                unarchiver instanceof XZUnArchiver;
     }
 
 
