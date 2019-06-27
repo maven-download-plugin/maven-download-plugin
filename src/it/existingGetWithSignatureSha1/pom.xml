@@ -12,9 +12,9 @@
 	<build>
 		<plugins>
 			<plugin>
-				<groupId>com.googlecode.maven-download-plugin</groupId>
-				<artifactId>download-maven-plugin</artifactId>
-				<version>${testing.versionUnderTest}</version>
+				<groupId>@project.groupId@</groupId>
+				<artifactId>@project.artifactId@</artifactId>
+				<version>@project.version@</version>
 				<executions>
 					<execution>
 						<phase>generate-resources</phase>

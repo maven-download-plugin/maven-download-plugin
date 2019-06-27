@@ -1,5 +1,3 @@
-import junit.framework.Assert;
-
 /**
  * Scenario:
  * Given plugin configuration:
@@ -13,15 +11,9 @@ import junit.framework.Assert;
  *
  * `jpg_file_name` is injected through scriptVariables
  */
-File target = new File(basedir, "target");
-File zip = new File(target, jpg_file_name);
-Assert.assertTrue(zip.exists());
-File stamp = new File(target, "stamp");
-Assert.assertTrue(
-  "Timestamp file should exist",
-  stamp.exists()
-);
-Assert.assertTrue(
-  "File expected to be modified but it wasn't",
-  stamp.text != String.valueOf(zip.lastModified())
-);
+File target = new File(basedir, "target")
+File zip = new File(target, jpg_file_name)
+assert zip.exists()
+File stamp = new File(target, "stamp")
+assert stamp.exists() : "Timestamp file should exist"
+assert stamp.text != String.valueOf(zip.lastModified()) : "File expected to be modified but it wasn't"

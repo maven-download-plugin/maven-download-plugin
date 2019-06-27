@@ -8,6 +8,13 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>Test</name>
 
+	<modules>
+		<module>sub1</module>
+		<module>sub2</module>
+		<module>sub3</module>
+		<module>sub4</module>
+	</modules>
+
 	<!-- Build plugins and extensions -->
 	<build>
 		<plugins>
@@ -23,8 +30,10 @@
 						</goals>
 						<configuration>
 							<url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</url>
-							<sha512>b3fc94ecd8cda8acb15198e9b23da84e9de82274643819d8c19858d58132cf25cbd2da46e772a4b5ccac08d062069d234010d7c0e9d9728399ab4870948c2c95</sha512>
-							<checkSignature>true</checkSignature>
+							<outputFileName>test.jpg</outputFileName>
+							<outputDirectory>${maven.multiModuleProjectDirectory}/target</outputDirectory>
+							<skipCache>true</skipCache>
+							<failOnError>false</failOnError>
 						</configuration>
 					</execution>
 				</executions>
