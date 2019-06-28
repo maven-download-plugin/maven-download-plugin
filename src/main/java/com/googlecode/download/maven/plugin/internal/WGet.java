@@ -314,7 +314,13 @@ public class WGet extends AbstractMojo {
         try {
             lockAcquired = fileLock.tryLock(maxLockWaitTime, TimeUnit.MICROSECONDS);
             if (!lockAcquired) {
-                throw new MojoExecutionException("Could not acquire lock for File: " + outputFile+" in " + maxLockWaitTime + "ms");
+                    String message = "Could not acquire lock for File: " + outputFile + " in " + maxLockWaitTime + "ms";
+                if (failOnError) {
+                    throw new MojoExecutionException(message);
+                } else {
+                    getLog().warn(message);
+                    return;
+                }
             }
             boolean haveFile = outputFile.exists();
             if (haveFile) {
