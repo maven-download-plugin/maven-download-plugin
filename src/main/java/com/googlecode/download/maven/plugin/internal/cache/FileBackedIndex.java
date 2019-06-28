@@ -94,7 +94,7 @@ final class FileBackedIndex implements FileIndex {
      * @param store file where index is persisted.
      */
     @SuppressWarnings("unchecked")
-    private void loadFrom(final File store) {
+    private synchronized void loadFrom(final File store) {
         if (store.length() != 0L) {
             try (
                 final RandomAccessFile file = new RandomAccessFile(store, "r");
@@ -113,7 +113,7 @@ final class FileBackedIndex implements FileIndex {
     /**
      * Saves current im-memory index to file based storage.
      */
-    private void save() {
+    private synchronized void save() {
         try (
             final FileOutputStream file = new FileOutputStream(this.storage);
             final ObjectOutput res = new ObjectOutputStream(file);

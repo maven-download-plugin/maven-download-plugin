@@ -15,13 +15,15 @@
  */
 package com.googlecode.download.maven.plugin.internal.cache;
 
-import com.googlecode.download.maven.plugin.internal.SignatureUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
+
 import org.apache.commons.codec.digest.DigestUtils;
+
+import com.googlecode.download.maven.plugin.internal.SignatureUtils;
 
 /**
  * A class representing a download cache
@@ -103,7 +105,7 @@ public class DownloadCache {
         } else if (!basedir.isDirectory()) {
             throw new IllegalArgumentException(
                 String.format(
-                    "Cannot use %s as cache directory: file is already exist",
+                    "Cannot use %s as cache directory: a file already exist there",
                     basedir
                 )
             );

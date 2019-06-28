@@ -19,7 +19,10 @@ import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -50,6 +53,7 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.proxy.ProxyInfo;
@@ -73,10 +77,13 @@ import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false)
+@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false, threadSafe = true)
 public class WGet extends AbstractMojo {
 
     private static final PoolingHttpClientConnectionManager CONN_POOL;
+
+    private static ConcurrentHashMap<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
 
     static {
         CONN_POOL = new PoolingHttpClientConnectionManager(
@@ -209,8 +216,11 @@ public class WGet extends AbstractMojo {
     @Parameter(property = "checkSignature", defaultValue = "false")
     private boolean checkSignature;
 
-    @Parameter(property = "session")
+    @Parameter(property = "session", readonly = true)
     private MavenSession session;
+
+    @Parameter(property = "project", readonly = true)
+    private MavenProject project;
 
     @Component
     private ArchiverManager archiverManager;
@@ -230,18 +240,39 @@ public class WGet extends AbstractMojo {
     /**
      * Maven Security Dispatcher
      */
-    @Component( hint = "mng-4384" )
+    @Component(hint = "mng-4384")
     private SecDispatcher securityDispatcher;
 
     /**
+     * Runs the plugin only if the current project is the execution root.
+     *
+     * This is helpful, if the plugin is defined in a profile and should only run once
+     * to download a shared file.
+     */
+    @Parameter(property = "runOnlyAtRoot", defaultValue = "false")
+    private boolean runOnlyAtRoot;
+
+    /**
+     * Maximum time (ms) to wait to acquire a file lock.
+     */
+    @Parameter(property = "maxLockWaitTime", defaultValue = "30000")
+    private long maxLockWaitTime;
+
+    /**
      * Method call whent he mojo is executed for the first time.
+     *
      * @throws MojoExecutionException if an error is occuring in this mojo.
-     * @throws MojoFailureException if an error is occuring in this mojo.
+     * @throws MojoFailureException   if an error is occuring in this mojo.
      */
     @Override
-	public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
             getLog().info("maven-download-plugin:wget skipped");
+            return;
+        }
+
+        if (runOnlyAtRoot && !project.isExecutionRoot()) {
+            getLog().info("maven-download-plugin:wget skipped (not project root)");
             return;
         }
 
@@ -267,15 +298,24 @@ public class WGet extends AbstractMojo {
         }
         if (this.cacheDirectory == null) {
             this.cacheDirectory = new File(this.session.getLocalRepository()
-                .getBasedir(), ".cache/download-maven-plugin");
+                    .getBasedir(), ".cache/download-maven-plugin");
         }
         getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
-        DownloadCache cache = new DownloadCache(this.cacheDirectory);
+
+        DownloadCache cache = DOWNLOAD_CACHES.computeIfAbsent(cacheDirectory.getAbsolutePath(),
+                directory -> new DownloadCache(new File(directory)));
+
         this.outputDirectory.mkdirs();
         File outputFile = new File(this.outputDirectory, this.outputFileName);
+        Lock fileLock = FILE_LOCKS.computeIfAbsent(outputFile.getAbsolutePath(), ignored -> new ReentrantLock());
 
         // DO
+        boolean lockAcquired = false;
         try {
+            lockAcquired = fileLock.tryLock(maxLockWaitTime, TimeUnit.MICROSECONDS);
+            if (!lockAcquired) {
+                throw new MojoExecutionException("Could not acquire lock for File: " + outputFile+" in " + maxLockWaitTime + "ms");
+            }
             boolean haveFile = outputFile.exists();
             if (haveFile) {
                 boolean signatureMatch = true;
@@ -299,10 +339,11 @@ public class WGet extends AbstractMojo {
                     if (expectedDigest != null) {
                         try {
                             SignatureUtils.verifySignature(outputFile, expectedDigest,
-                                MessageDigest.getInstance(algorithm));
+                                    MessageDigest.getInstance(algorithm));
                         } catch (MojoFailureException e) {
-                            getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected signature. " +
-                                "You should consider checking the specified signature is correctly set.");
+                            getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected "
+                                    + "signature. " +
+                                    "You should consider checking the specified signature is correctly set.");
                             signatureMatch = false;
                         }
                     }
@@ -333,15 +374,15 @@ public class WGet extends AbstractMojo {
                             doGet(outputFile);
                             if (this.md5 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.md5,
-                                    MessageDigest.getInstance("MD5"));
+                                        MessageDigest.getInstance("MD5"));
                             }
                             if (this.sha1 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.sha1,
-                                    MessageDigest.getInstance("SHA1"));
+                                        MessageDigest.getInstance("SHA1"));
                             }
                             if (this.sha512 != null) {
                                 SignatureUtils.verifySignature(outputFile, this.sha512,
-                                    MessageDigest.getInstance("SHA-512"));
+                                        MessageDigest.getInstance("SHA-512"));
                             }
                             done = true;
                         } catch (Exception ex) {
@@ -367,10 +408,14 @@ public class WGet extends AbstractMojo {
                 unpack(outputFile);
                 buildContext.refresh(outputDirectory);
             } else {
-            	buildContext.refresh(outputFile);
+                buildContext.refresh(outputFile);
             }
         } catch (Exception ex) {
             throw new MojoExecutionException("IO Error", ex);
+        }finally {
+            if (lockAcquired) {
+                fileLock.unlock();
+            }
         }
     }
 
@@ -388,7 +433,7 @@ public class WGet extends AbstractMojo {
     }
 
     private boolean isFileUnArchiver(final UnArchiver unarchiver) {
-        return unarchiver instanceof  BZip2UnArchiver ||
+        return unarchiver instanceof BZip2UnArchiver ||
                 unarchiver instanceof GZipUnArchiver ||
                 unarchiver instanceof SnappyUnArchiver ||
                 unarchiver instanceof XZUnArchiver;
@@ -425,7 +470,7 @@ public class WGet extends AbstractMojo {
             if (server == null) {
                 throw new MojoExecutionException(String.format("Server %s not found", serverId));
             }
-            getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
+            getLog().debug(String.format("serverId %s supplies username: %s and password: ***", serverId, server.getUsername()));
 
             credentialsProvider = new BasicCredentialsProvider();
             credentialsProvider.setCredentials(
@@ -459,32 +504,34 @@ public class WGet extends AbstractMojo {
             routePlanner = new SystemDefaultRoutePlanner(ProxySelector.getDefault());
         }
 
-        final CloseableHttpClient httpClient = HttpClientBuilder.create()
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create()
                 .setConnectionManager(CONN_POOL)
                 .setConnectionManagerShared(true)
                 .setRoutePlanner(routePlanner)
-                .build();
+                .build()) {
 
-        final HttpFileRequester fileRequester = new HttpFileRequester(
-                httpClient,
-                this.session.getSettings().isInteractiveMode() ?
-                        new LoggingProgressReport(getLog()) : new SilentProgressReport(getLog()));
+            final HttpFileRequester fileRequester = new HttpFileRequester(
+                    httpClient,
+                    this.session.getSettings().isInteractiveMode() ?
+                            new LoggingProgressReport(getLog()) : new SilentProgressReport(getLog()));
+            final HttpClientContext clientContext = HttpClientContext.create();
 
-        final HttpClientContext clientContext = HttpClientContext.create();
-        clientContext.setRequestConfig(requestConfig);
-        if (credentialsProvider != null) {
-            clientContext.setCredentialsProvider(credentialsProvider);
+            clientContext.setRequestConfig(requestConfig);
+            if (credentialsProvider != null) {
+                clientContext.setCredentialsProvider(credentialsProvider);
+            }
+
+            fileRequester.download(this.uri, outputFile, clientContext);
         }
 
-        fileRequester.download(this.uri, outputFile, clientContext);
     }
 
     private String decrypt(String str, String server) {
-        try  {
+        try {
             return securityDispatcher.decrypt(str);
-        }
-        catch(SecDispatcherException e) {
-            getLog().warn(String.format("Failed to decrypt password/passphrase for server %s, using auth token as is", server), e);
+        } catch (SecDispatcherException e) {
+            getLog().warn(String.format("Failed to decrypt password/passphrase for server %s, using auth token as is", server),
+                    e);
             return str;
         }
     }
