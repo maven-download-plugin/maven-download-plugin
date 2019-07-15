@@ -19,6 +19,7 @@ import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
@@ -82,8 +83,8 @@ public class WGet extends AbstractMojo {
 
     private static final PoolingHttpClientConnectionManager CONN_POOL;
 
-    private static ConcurrentHashMap<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
-    private static ConcurrentHashMap<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
+    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
+    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
 
     static {
         CONN_POOL = new PoolingHttpClientConnectionManager(
@@ -314,7 +315,7 @@ public class WGet extends AbstractMojo {
         try {
             lockAcquired = fileLock.tryLock(maxLockWaitTime, TimeUnit.MICROSECONDS);
             if (!lockAcquired) {
-                    String message = "Could not acquire lock for File: " + outputFile + " in " + maxLockWaitTime + "ms";
+                    String message = String.format("Could not acquire lock for File: %s in %dms", outputFile, maxLockWaitTime);
                 if (failOnError) {
                     throw new MojoExecutionException(message);
                 } else {
@@ -418,7 +419,7 @@ public class WGet extends AbstractMojo {
             }
         } catch (Exception ex) {
             throw new MojoExecutionException("IO Error", ex);
-        }finally {
+        } finally {
             if (lockAcquired) {
                 fileLock.unlock();
             }
@@ -450,8 +451,8 @@ public class WGet extends AbstractMojo {
         final RequestConfig requestConfig;
         if (readTimeOut > 0) {
             getLog().info(
-                    "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
-                            + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
+                    String.format("Read Timeout is set to %d milliseconds (apprx %d minutes)", readTimeOut,
+                            Math.round(readTimeOut * 1.66667e-5)));
             requestConfig = RequestConfig.custom()
                     .setConnectTimeout(readTimeOut)
                     .setSocketTimeout(readTimeOut)

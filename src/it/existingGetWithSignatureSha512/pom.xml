@@ -5,7 +5,7 @@
 	<groupId>com.googlecode.maven-download-plugin.it</groupId>
 	<artifactId>testBasic</artifactId>
 	<packaging>pom</packaging>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>${testing.versionUnderTest}</version>
 	<name>Test</name>
 
 	<!-- Build plugins and extensions -->

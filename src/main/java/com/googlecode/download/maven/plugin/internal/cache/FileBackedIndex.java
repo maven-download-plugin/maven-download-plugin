@@ -49,19 +49,19 @@ final class FileBackedIndex implements FileIndex {
     }
 
     @Override
-    public void put(final URI uri, final String path) {
+    public synchronized void put(final URI uri, final String path) {
         this.index.put(uri, path);
         this.save();
     }
 
     @Override
-    public boolean contains(final URI uri) {
+    public synchronized boolean contains(final URI uri) {
         this.loadFrom(this.storage);
         return this.index.containsKey(uri);
     }
 
     @Override
-    public String get(final URI uri) {
+    public synchronized String get(final URI uri) {
         if (this.contains(uri)) {
             return this.index.get(uri);
         }
@@ -94,7 +94,7 @@ final class FileBackedIndex implements FileIndex {
      * @param store file where index is persisted.
      */
     @SuppressWarnings("unchecked")
-    private synchronized void loadFrom(final File store) {
+    private void loadFrom(final File store) {
         if (store.length() != 0L) {
             try (
                 final RandomAccessFile file = new RandomAccessFile(store, "r");
@@ -113,7 +113,7 @@ final class FileBackedIndex implements FileIndex {
     /**
      * Saves current im-memory index to file based storage.
      */
-    private synchronized void save() {
+    private void save() {
         try (
             final FileOutputStream file = new FileOutputStream(this.storage);
             final ObjectOutput res = new ObjectOutputStream(file);
