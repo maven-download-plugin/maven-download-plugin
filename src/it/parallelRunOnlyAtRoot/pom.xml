@@ -1,0 +1,45 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Build description -->
+    <groupId>com.googlecode.maven-download-plugin.it</groupId>
+    <artifactId>testBasic</artifactId>
+    <packaging>pom</packaging>
+    <version>${testing.versionUnderTest}</version>
+    <name>Test</name>
+
+    <modules>
+        <module>sub1</module>
+        <module>sub2</module>
+        <module>sub3</module>
+        <module>sub4</module>
+    </modules>
+
+    <!-- Build plugins and extensions -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
+                <executions>
+                    <execution>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</url>
+                            <outputFileName>test.jpg</outputFileName>
+                            <outputDirectory>${maven.multiModuleProjectDirectory}/target</outputDirectory>
+                            <skipCache>true</skipCache>
+                            <failOnError>false</failOnError>
+                            <runOnlyAtRoot>true</runOnlyAtRoot>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

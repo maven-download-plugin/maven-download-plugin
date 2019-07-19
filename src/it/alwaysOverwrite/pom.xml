@@ -5,7 +5,7 @@
 	<groupId>com.googlecode.maven-download-plugin.it</groupId>
 	<artifactId>testBasic</artifactId>
 	<packaging>pom</packaging>
-	<version>0.0.1-SNAPSHOT</version>
+    <version>${testing.versionUnderTest}</version>
 	<name>Test</name>
 
 	<!-- Build plugins and extensions -->
@@ -13,9 +13,9 @@
 		<plugins>
 			<!--  Download the file first time -->
 			<plugin>
-				<groupId>com.googlecode.maven-download-plugin</groupId>
-				<artifactId>download-maven-plugin</artifactId>
-				<version>${testing.versionUnderTest}</version>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
 				<executions>
 					<execution>
                         <id>first-download</id>
@@ -75,9 +75,9 @@
 			</plugin>
 			<!--  Download the file second time -->
             <plugin>
-                <groupId>com.googlecode.maven-download-plugin</groupId>
-                <artifactId>download-maven-plugin</artifactId>
-                <version>${testing.versionUnderTest}</version>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
                 <executions>
                     <execution>
                         <id>second-download</id>
@@ -95,5 +95,5 @@
             </plugin>
 		</plugins>
 	</build>
-	
+
 </project>

@@ -50,6 +50,7 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.proxy.ProxyInfo;
@@ -73,7 +74,7 @@ import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false)
+@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true)
 public class WGet extends AbstractMojo {
 
     private static final PoolingHttpClientConnectionManager CONN_POOL;
@@ -209,8 +210,11 @@ public class WGet extends AbstractMojo {
     @Parameter(property = "checkSignature", defaultValue = "false")
     private boolean checkSignature;
 
-    @Parameter(property = "session")
+    @Parameter(property = "session", readonly = true)
     private MavenSession session;
+
+    @Parameter(property = "project", readonly = true)
+    private MavenProject project;
 
     @Component
     private ArchiverManager archiverManager;
@@ -230,18 +234,33 @@ public class WGet extends AbstractMojo {
     /**
      * Maven Security Dispatcher
      */
-    @Component( hint = "mng-4384" )
+    @Component(hint = "mng-4384")
     private SecDispatcher securityDispatcher;
 
     /**
+     * Runs the plugin only if the current project is the execution root.
+     *
+     * This is helpful, if the plugin is defined in a profile and should only run once
+     * to download a shared file.
+     */
+    @Parameter(property = "runOnlyAtRoot", defaultValue = "false")
+    private boolean runOnlyAtRoot;
+
+    /**
      * Method call whent he mojo is executed for the first time.
+     *
      * @throws MojoExecutionException if an error is occuring in this mojo.
-     * @throws MojoFailureException if an error is occuring in this mojo.
+     * @throws MojoFailureException   if an error is occuring in this mojo.
      */
     @Override
-	public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
             getLog().info("maven-download-plugin:wget skipped");
+            return;
+        }
+
+        if (runOnlyAtRoot && !project.isExecutionRoot()) {
+            getLog().info("maven-download-plugin:wget skipped (not project root)");
             return;
         }
 
