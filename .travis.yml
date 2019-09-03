@@ -8,7 +8,6 @@ env:
     - MAVEN_OPTS="-XX:MaxPermSize=256m -Xmx512m"
     - JAVA_OPTS="-XX:MaxPermSize=256m -Xmx512m"
 jdk:
-  - oraclejdk8
   - openjdk8
 script:
   - mvn clean install --batch-mode --errors
