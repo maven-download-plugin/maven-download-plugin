@@ -99,11 +99,11 @@
 									<preBuildHookScript>prepare.groovy</preBuildHookScript>
 									<postBuildHookScript>verify</postBuildHookScript>
 									<debug>true</debug>
-									<environmentVariables>
+									<properties>
 										<testing.versionUnderTest>${project.version}</testing.versionUnderTest>
 										<test.jpg.file.name>lolcatsdotcomcm90ebvhwphtzqvf.jpg</test.jpg.file.name>
 										<test.jpg.file.url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</test.jpg.file.url>
-									</environmentVariables>
+									</properties>
 									<scriptVariables>
 										<jpg_file_name>lolcatsdotcomcm90ebvhwphtzqvf.jpg</jpg_file_name>
 									</scriptVariables>
