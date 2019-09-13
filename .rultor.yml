@@ -5,7 +5,7 @@ architect:
 assets:
   pubring.gpg: longtimeago/home#assets/pubring.gpg
   secring.gpg: longtimeago/home#assets/secring.gpg
-  settings.xml: longtimeago/home#assets/rultor/settings.xml
+  settings.xml: longtimeago/home#assets/settings.xml
 release:
   script: |-
     [[ "${tag}" =~ ^[0-9]+(\.[0-9]+)*$ ]] || exit -1
