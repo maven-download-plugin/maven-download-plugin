@@ -1,0 +1,14 @@
+docker:
+  image: yegor256/java8
+architect:
+  - longtimeago
+assets:
+  pubring.gpg: longtimeago/home#assets/pubring.gpg
+  secring.gpg: longtimeago/home#assets/secring.gpg
+  settings.xml: longtimeago/home#assets/rultor/settings.xml
+release:
+  script: |-
+    [[ "${tag}" =~ ^[0-9]+(\.[0-9]+)*$ ]] || exit -1
+    mvn versions:set "-DnewVersion=${tag}"
+    git commit -am "${tag}"
+    mvn clean deploy -Psonatype-oss-release --errors --settings ../settings.xml
