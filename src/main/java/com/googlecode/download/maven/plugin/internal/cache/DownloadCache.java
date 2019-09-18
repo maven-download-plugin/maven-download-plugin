@@ -39,7 +39,7 @@ public class DownloadCache {
         this.basedir = cacheDirectory;
     }
 
-	private String getEntry(URI uri, String md5, String sha1, String sha512) throws Exception {
+	private String getEntry(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
 		if (!this.index.contains(uri)) {
 			return null;
 		}
@@ -52,6 +52,9 @@ public class DownloadCache {
 			return null;
 		}
 		if (sha1 != null && !sha1.equals(SignatureUtils.getSHA1(resFile))) {
+			return null;
+		}
+		if (sha256 != null && !sha256.equals(SignatureUtils.getSHA256(resFile))) {
 			return null;
 		}
 		if (sha512 != null && !sha512.equals(SignatureUtils.getSHA512(resFile))) {
@@ -67,27 +70,32 @@ public class DownloadCache {
 	 * @param uri URL of the file
 	 * @param md5 MD5 signature to verify file. Can be null =&gt; No check
 	 * @param sha1 Sha1 signature to verify file. Can be null =&gt; No check
+	 * @param sha256 Sha256 signature to verify file. Can be null =&gt; No check
+	 * @param sha512 Sha512 signature to verify file. Can be null =&gt; No check
 	 * @return A File when cache is found, null if no available cache
 	 */
-    public File getArtifact(URI uri, String md5, String sha1, String sha512) throws Exception {
-		String res = getEntry(uri, md5, sha1, sha512);
+    public File getArtifact(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
+		String res = getEntry(uri, md5, sha1, sha256, sha512);
 		if (res != null) {
 			return new File(this.basedir, res);
 		}
 		return null;
 	}
 
-    public void install(URI uri, File outputFile, String md5, String sha1, String sha512) throws Exception {
+    public void install(URI uri, File outputFile, String md5, String sha1, String sha256, String sha512) throws Exception {
 		if (md5 == null) {
 			md5 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("MD5"));
 		}
 		if (sha1 == null) {
 			sha1 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA1"));
 		}
+		if (sha256 == null) {
+			sha256 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-256"));
+		}
 		if (sha512 == null) {
 			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-512"));
 		}
-		String entry = getEntry(uri, md5, sha1, sha512);
+		String entry = getEntry(uri, md5, sha1, sha256, sha512);
 		if (entry != null) {
 			return; // entry already here
 		}
