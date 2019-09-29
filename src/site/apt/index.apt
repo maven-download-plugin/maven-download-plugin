@@ -24,8 +24,8 @@
 
 Maven download plugin
 
-  
-	This is a plugin meant to help maven user to download different files on different protocol in part of 
+
+	This is a plugin meant to help maven user to download different files on different protocol in part of
 maven build.
-	More up-to-date information can be found via the {{{http://code.google.com/p/maven-download-plugin/}project site}}.
+	More up-to-date information can be found via the  {{{https://github.com/maven-download-plugin/maven-download-plugin/}project site}}.
 
