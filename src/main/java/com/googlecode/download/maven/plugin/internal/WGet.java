@@ -125,28 +125,28 @@ public class WGet extends AbstractMojo {
      * The md5 of the file. If set, file signature will be compared to this
      * signature and plugin will fail.
      */
-    @Parameter
+    @Parameter(property = "download.verify.md5")
     private String md5;
 
     /**
      * The sha1 of the file. If set, file signature will be compared to this
      * signature and plugin will fail.
      */
-    @Parameter
+    @Parameter(property = "download.verify.sha1")
     private String sha1;
 
     /**
      * The sha256 of the file. If set, file signature will be compared to this
      * signature and plugin will fail.
      */
-    @Parameter
+    @Parameter(property = "download.verify.sha256")
     private String sha256;
 
     /**
      * The sha512 of the file. If set, file signature will be compared to this
      * signature and plugin will fail.
      */
-    @Parameter
+    @Parameter(property = "download.verify.sha512")
     private String sha512;
 
     /**
@@ -159,19 +159,19 @@ public class WGet extends AbstractMojo {
      * Server Id from settings file to use for authentication
      * Only one of serverId or (username/password) may be supplied
      */
-    @Parameter
+    @Parameter(property = "download.auth.serverId")
     private String serverId;
 
     /**
      * Custom username for the download
      */
-    @Parameter
+    @Parameter(property = "download.auth.username")
     private String username;
 
     /**
      * Custom password for the download
      */
-    @Parameter
+    @Parameter(property = "download.auth.password")
     private String password;
 
     /**
