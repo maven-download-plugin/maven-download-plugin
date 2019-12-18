@@ -1,0 +1,66 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<!-- Build description -->
+	<groupId>com.googlecode.maven-download-plugin.it</groupId>
+	<artifactId>testBasic</artifactId>
+	<packaging>pom</packaging>
+    <version>${testing.versionUnderTest}</version>
+	<name>Test</name>
+	
+	<properties>
+		<download.cache.directory>${project.build.directory}/cache</download.cache.directory>
+	</properties>
+
+	<!-- Build plugins and extensions -->
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>@project.groupId@</groupId>
+				<artifactId>@project.artifactId@</artifactId>
+				<executions>
+					<execution>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>wget</goal>
+						</goals>
+						<configuration>
+							<url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</url>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+	
+	<profiles>
+		<profile>
+			<id>version1_3_0</id>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>@project.groupId@</groupId>
+							<artifactId>@project.artifactId@</artifactId>
+							<version>1.3.0</version>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
+		<profile>
+			<id>currentVersion</id>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>@project.groupId@</groupId>
+							<artifactId>@project.artifactId@</artifactId>
+							<version>@project.version@</version>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
+	</profiles>
+</project>
