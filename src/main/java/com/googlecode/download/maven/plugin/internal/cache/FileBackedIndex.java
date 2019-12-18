@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InvalidClassException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
@@ -41,11 +42,27 @@ final class FileBackedIndex implements FileIndex {
         }
         final File store = new File(baseDir, "index.ser");
         if (store.exists()) {
-            this.loadFrom(store);
+            try {
+                this.loadFrom(store);
+            } catch (IncompatibleIndexException e) {
+                deleteIncompatible(store);
+                FileBackedIndex.create(store);
+            }
         } else {
             FileBackedIndex.create(store);
         }
         this.storage = store;
+    }
+
+    private void deleteIncompatible(File store) {
+        if (!store.delete()) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Failed to delete incompatible index storage file %s",
+                            store.getAbsolutePath()
+                    )
+            );
+        }
     }
 
     @Override
@@ -92,9 +109,10 @@ final class FileBackedIndex implements FileIndex {
     /**
      * Loads index from the file storage replacing all in-memory entries.
      * @param store file where index is persisted.
+     * @throws IncompatibleIndexException is the store cannot be read due to a deserialization issue
      */
     @SuppressWarnings("unchecked")
-    private void loadFrom(final File store) {
+    private void loadFrom(final File store) throws IncompatibleIndexException {
         if (store.length() != 0L) {
             try (
                 final RandomAccessFile file = new RandomAccessFile(store, "r");
@@ -104,7 +122,9 @@ final class FileBackedIndex implements FileIndex {
             ) {
                 this.index.clear();
                 this.index.putAll((Map<URI, String>) deserialize.readObject());
-            } catch (final IOException | ClassNotFoundException ex) {
+            } catch (ClassNotFoundException | InvalidClassException e) {
+                throw new IncompatibleIndexException(e);
+            } catch (final IOException ex) {
                 throw new IllegalStateException(ex);
             }
         }
