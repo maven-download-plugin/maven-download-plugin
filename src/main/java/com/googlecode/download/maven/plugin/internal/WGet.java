@@ -26,6 +26,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -34,6 +35,8 @@ import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -185,6 +188,18 @@ public class WGet extends AbstractMojo {
      */
     @Parameter(defaultValue = "0")
     private int readTimeOut;
+    
+    /**
+     * Allow automatic redirects to be followed
+     */
+    @Parameter(defaultValue = "false")
+    private boolean redirectsEnabled;
+    
+    /**
+     * Assume basic authentication on first attempt; instead of negotiating with server
+     */
+    @Parameter(defaultValue = "false")
+    private boolean assumeBasicAuth;
 
     /**
      * Download file without polling cache
@@ -439,6 +454,7 @@ public class WGet extends AbstractMojo {
             requestConfig = RequestConfig.custom()
                     .setConnectTimeout(readTimeOut)
                     .setSocketTimeout(readTimeOut)
+                    .setRedirectsEnabled(redirectsEnabled)
                     .build();
         } else {
             requestConfig = RequestConfig.DEFAULT;
@@ -508,6 +524,13 @@ public class WGet extends AbstractMojo {
         final HttpClientContext clientContext = HttpClientContext.create();
         clientContext.setRequestConfig(requestConfig);
         if (credentialsProvider != null) {
+        	if (assumeBasicAuth) {
+	        	AuthCache authCache = new BasicAuthCache();
+	        	HttpHost authHost = new HttpHost(this.uri.getHost(), this.uri.getPort(), this.uri.getScheme());
+	        	authCache.put(authHost, new BasicScheme());
+	        	clientContext.setAuthCache(authCache);
+        	}
+        	
             clientContext.setCredentialsProvider(credentialsProvider);
         }
 
