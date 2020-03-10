@@ -471,7 +471,7 @@ public class WGet extends AbstractMojo {
 
         final HttpRoutePlanner routePlanner;
         ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
-        if (proxyInfo != null && proxyInfo.getHost() != null && ProxyInfo.PROXY_HTTP.equals(proxyInfo.getType())) {
+        if (proxyInfo != null && proxyInfo.getHost() != null ) {
             routePlanner = new DefaultProxyRoutePlanner(new HttpHost(proxyInfo.getHost(), proxyInfo.getPort()));
             if (proxyInfo.getUserName() != null) {
                 final Credentials creds;
