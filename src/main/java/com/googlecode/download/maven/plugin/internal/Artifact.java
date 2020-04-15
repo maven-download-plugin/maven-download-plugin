@@ -39,7 +39,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
-import org.apache.maven.project.artifact.InvalidDependencyVersionException;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
 
@@ -275,9 +274,6 @@ public class Artifact extends AbstractMojo {
             getLog().debug("Could not find the dependency", e);
             throw new MojoFailureException("Could not find the dependency : " + e.getMessage());
         } catch (ProjectBuildingException e) {
-            getLog().debug("Error Creating the pom project for artifact : " + artifact, e);
-            throw new MojoFailureException("Error getting transitive dependencies : " + e.getMessage());
-        } catch (InvalidDependencyVersionException e) {
             getLog().debug("Error Creating the pom project for artifact : " + artifact, e);
             throw new MojoFailureException("Error getting transitive dependencies : " + e.getMessage());
         }
