@@ -14,13 +14,17 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import java.io.File;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
 import java.security.MessageDigest;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
@@ -66,18 +70,27 @@ import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 
-import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
-
 /**
  * Will download a file from a web site using the standard HTTP protocol.
  *
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true)
+@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
 public class WGet extends AbstractMojo {
 
     private static final PoolingHttpClientConnectionManager CONN_POOL;
+    /**
+     * A map of file caches by their location paths.
+     * Ensures one cache instance per path and enables safe execution in parallel
+     * builds against the same cache.
+     */
+    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
+    /**
+     * A map of file locks by files to be downloaded.
+     * Ensures exclusive access to a target file.
+     */
+    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
 
     static {
         CONN_POOL = new PoolingHttpClientConnectionManager(
@@ -254,6 +267,15 @@ public class WGet extends AbstractMojo {
     private boolean runOnlyAtRoot;
 
     /**
+     * Maximum time (ms) to wait to acquire a file lock.
+     *
+     * Customize the time when using the plugin to download the same file
+     * from several submodules in parallel build.
+     */
+    @Parameter(property = "maxLockWaitTime", defaultValue = "30000")
+    private long maxLockWaitTime;
+
+    /**
      * Method call whent he mojo is executed for the first time.
      *
      * @throws MojoExecutionException if an error is occuring in this mojo.
@@ -296,12 +318,34 @@ public class WGet extends AbstractMojo {
                 .getBasedir(), ".cache/download-maven-plugin");
         }
         getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
-        DownloadCache cache = new DownloadCache(this.cacheDirectory);
+        final DownloadCache cache = DOWNLOAD_CACHES.computeIfAbsent(
+            cacheDirectory.getAbsolutePath(),
+            directory -> new DownloadCache(new File(directory))
+        );
         this.outputDirectory.mkdirs();
-        File outputFile = new File(this.outputDirectory, this.outputFileName);
+        final File outputFile = new File(this.outputDirectory, this.outputFileName);
+        final Lock fileLock = FILE_LOCKS.computeIfAbsent(
+            outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
+        );
 
         // DO
+        boolean lockAcquired = false;
         try {
+            lockAcquired = fileLock.tryLock(
+                this.maxLockWaitTime, TimeUnit.MILLISECONDS
+            );
+            if (!lockAcquired) {
+                final String message = String.format(
+                    "Could not acquire lock for File: %s in %dms",
+                    outputFile, this.maxLockWaitTime
+                );
+                if (this.failOnError) {
+                    throw new MojoExecutionException(message);
+                } else {
+                    getLog().warn(message);
+                    return;
+                }
+            }
             boolean haveFile = outputFile.exists();
             if (haveFile) {
                 boolean signatureMatch = true;
@@ -406,6 +450,10 @@ public class WGet extends AbstractMojo {
             }
         } catch (Exception ex) {
             throw new MojoExecutionException("IO Error", ex);
+        } finally {
+            if (lockAcquired) {
+                fileLock.unlock();
+            }
         }
     }
 
@@ -434,8 +482,12 @@ public class WGet extends AbstractMojo {
         final RequestConfig requestConfig;
         if (readTimeOut > 0) {
             getLog().info(
-                    "Read Timeout is set to " + readTimeOut + " milliseconds (apprx "
-                            + Math.round(readTimeOut * 1.66667e-5) + " minutes)");
+                String.format(
+                    "Read Timeout is set to %d milliseconds (apprx %d minutes)",
+                    readTimeOut,
+                    Math.round(readTimeOut * 1.66667e-5)
+                )
+            );
             requestConfig = RequestConfig.custom()
                     .setConnectTimeout(readTimeOut)
                     .setSocketTimeout(readTimeOut)
@@ -494,32 +546,35 @@ public class WGet extends AbstractMojo {
             routePlanner = new SystemDefaultRoutePlanner(ProxySelector.getDefault());
         }
 
-        final CloseableHttpClient httpClient = HttpClientBuilder.create()
+        try (final CloseableHttpClient httpClient = HttpClientBuilder.create()
                 .setConnectionManager(CONN_POOL)
                 .setConnectionManagerShared(true)
                 .setRoutePlanner(routePlanner)
-                .build();
-
-        final HttpFileRequester fileRequester = new HttpFileRequester(
+                .build()) {
+            final HttpFileRequester fileRequester = new HttpFileRequester(
                 httpClient,
                 this.session.getSettings().isInteractiveMode() ?
-                        new LoggingProgressReport(getLog()) : new SilentProgressReport(getLog()));
+                    new LoggingProgressReport(getLog()) : new SilentProgressReport(getLog()));
 
-        final HttpClientContext clientContext = HttpClientContext.create();
-        clientContext.setRequestConfig(requestConfig);
-        if (credentialsProvider != null) {
-            clientContext.setCredentialsProvider(credentialsProvider);
+            final HttpClientContext clientContext = HttpClientContext.create();
+            clientContext.setRequestConfig(requestConfig);
+            if (credentialsProvider != null) {
+                clientContext.setCredentialsProvider(credentialsProvider);
+            }
+            fileRequester.download(this.uri, outputFile, clientContext);
         }
-
-        fileRequester.download(this.uri, outputFile, clientContext);
     }
 
     private String decrypt(String str, String server) {
         try  {
             return securityDispatcher.decrypt(str);
-        }
-        catch(SecDispatcherException e) {
-            getLog().warn(String.format("Failed to decrypt password/passphrase for server %s, using auth token as is", server), e);
+        } catch(SecDispatcherException e) {
+            getLog().warn(
+                String.format(
+                    "Failed to decrypt password/passphrase for server %s, using auth token as is",
+                    server
+                ), e
+            );
             return str;
         }
     }

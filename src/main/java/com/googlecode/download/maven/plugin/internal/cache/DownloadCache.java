@@ -28,7 +28,7 @@ import org.apache.commons.codec.digest.DigestUtils;
  * @author Mickael Istria (Red Hat Inc)
  *
  */
-public class DownloadCache {
+public final class DownloadCache {
 
 	private final File basedir;
     private final FileIndex index;
@@ -111,7 +111,7 @@ public class DownloadCache {
         } else if (!basedir.isDirectory()) {
             throw new IllegalArgumentException(
                 String.format(
-                    "Cannot use %s as cache directory: file is already exist",
+					"Cannot use %s as cache directory: a file already exist there",
                     basedir
                 )
             );

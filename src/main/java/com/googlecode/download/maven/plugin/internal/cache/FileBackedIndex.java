@@ -44,8 +44,8 @@ final class FileBackedIndex implements FileIndex {
         if (store.exists()) {
             try {
                 this.loadFrom(store);
-            } catch (IncompatibleIndexException e) {
-                deleteIncompatible(store);
+            } catch (final IncompatibleIndexException e) {
+                FileBackedIndex.deleteIncompatible(store);
                 FileBackedIndex.create(store);
             }
         } else {
@@ -54,31 +54,20 @@ final class FileBackedIndex implements FileIndex {
         this.storage = store;
     }
 
-    private void deleteIncompatible(File store) {
-        if (!store.delete()) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Failed to delete incompatible index storage file %s",
-                            store.getAbsolutePath()
-                    )
-            );
-        }
-    }
-
     @Override
-    public void put(final URI uri, final String path) {
+    public synchronized void put(final URI uri, final String path) {
         this.index.put(uri, path);
         this.save();
     }
 
     @Override
-    public boolean contains(final URI uri) {
+    public synchronized boolean contains(final URI uri) {
         this.loadFrom(this.storage);
         return this.index.containsKey(uri);
     }
 
     @Override
-    public String get(final URI uri) {
+    public synchronized String get(final URI uri) {
         if (this.contains(uri)) {
             return this.index.get(uri);
         }
@@ -106,6 +95,17 @@ final class FileBackedIndex implements FileIndex {
         }
     }
 
+    private static void deleteIncompatible(final File store) {
+        if (!store.delete()) {
+            throw new IllegalStateException(
+                String.format(
+                    "Failed to delete incompatible index storage file %s",
+                    store.getAbsolutePath()
+                )
+            );
+        }
+    }
+
     /**
      * Loads index from the file storage replacing all in-memory entries.
      * @param store file where index is persisted.
@@ -122,7 +122,7 @@ final class FileBackedIndex implements FileIndex {
             ) {
                 this.index.clear();
                 this.index.putAll((Map<URI, String>) deserialize.readObject());
-            } catch (ClassNotFoundException | InvalidClassException e) {
+            } catch (final ClassNotFoundException | InvalidClassException e) {
                 throw new IncompatibleIndexException(e);
             } catch (final IOException ex) {
                 throw new IllegalStateException(ex);
