@@ -568,7 +568,7 @@ public class WGet extends AbstractMojo {
     private String decrypt(String str, String server) {
         try  {
             return securityDispatcher.decrypt(str);
-        } catch(SecDispatcherException e) {
+        } catch(final SecDispatcherException e) {
             getLog().warn(
                 String.format(
                     "Failed to decrypt password/passphrase for server %s, using auth token as is",

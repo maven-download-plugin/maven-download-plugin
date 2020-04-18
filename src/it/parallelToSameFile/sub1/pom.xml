@@ -12,5 +12,5 @@
     <artifactId>sub1</artifactId>
     <packaging>pom</packaging>
     <version>${testing.versionUnderTest}</version>
-    <name>Test1</name>
+    <name>Test 1</name>
 </project>

@@ -14,16 +14,23 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import javax.annotation.concurrent.NotThreadSafe;
 
 /**
  * Binary file backed index.
+ * The implementation is <b>NOT</b> thread safe and should be synchronized
+ * by the lock.
  * @author Paul Polishchuk
  * @since 1.3.1
  */
+@NotThreadSafe
 final class FileBackedIndex implements FileIndex {
 
     private final Map<URI, String> index = new HashMap<>();
     private final File storage;
+    private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     /**
      * Creates index backed by file "index.ser" in baseDir.
@@ -55,27 +62,21 @@ final class FileBackedIndex implements FileIndex {
     }
 
     @Override
-    public synchronized void put(final URI uri, final String path) {
+    public void put(final URI uri, final String path) {
         this.index.put(uri, path);
         this.save();
     }
 
     @Override
-    public synchronized boolean contains(final URI uri) {
+    public String get(final URI uri) {
         this.loadFrom(this.storage);
-        return this.index.containsKey(uri);
+        return this.index.get(uri);
     }
 
     @Override
-    public synchronized String get(final URI uri) {
-        if (this.contains(uri)) {
-            return this.index.get(uri);
-        }
-        throw new IllegalStateException(
-            "Cache miss. Check for existence with FileIndex#contains before"
-        );
+    public ReadWriteLock getLock() {
+        return this.lock;
     }
-
     /**
      * Create storage file.
      * @param store File to be created.
