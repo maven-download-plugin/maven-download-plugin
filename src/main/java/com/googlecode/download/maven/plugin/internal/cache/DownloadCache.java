@@ -40,10 +40,10 @@ public final class DownloadCache {
     }
 
 	private String getEntry(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
-		if (!this.index.contains(uri)) {
+		final String res = this.index.get(uri);
+		if (res == null) {
 			return null;
 		}
-		final String res = this.index.get(uri);
 		File resFile = new File(this.basedir, res);
 		if (!resFile.isFile()) {
 			return null;
@@ -75,7 +75,13 @@ public final class DownloadCache {
 	 * @return A File when cache is found, null if no available cache
 	 */
     public File getArtifact(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
-		String res = getEntry(uri, md5, sha1, sha256, sha512);
+		final String res;
+		try {
+			this.index.getLock().readLock().lock();
+			res = this.getEntry(uri, md5, sha1, sha256, sha512);
+		} finally {
+			this.index.getLock().readLock().unlock();
+		}
 		if (res != null) {
 			return new File(this.basedir, res);
 		}
@@ -95,14 +101,25 @@ public final class DownloadCache {
 		if (sha512 == null) {
 			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-512"));
 		}
-		String entry = getEntry(uri, md5, sha1, sha256, sha512);
-		if (entry != null) {
-			return; // entry already here
+		try {
+			this.index.getLock().writeLock().lock();
+			final String entry = this.getEntry(uri, md5, sha1, sha256, sha512);
+			if (entry != null) {
+				return; // entry already here
+			}
+			final String fileName = String.format(
+				"%s_%s", outputFile.getName(), DigestUtils.md5Hex(uri.toString())
+			);
+			Files.copy(
+				outputFile.toPath(),
+				new File(this.basedir, fileName).toPath(),
+				StandardCopyOption.REPLACE_EXISTING
+			);
+			// update index
+			this.index.put(uri, fileName);
+		} finally {
+			this.index.getLock().writeLock().unlock();
 		}
-		String fileName = outputFile.getName() + '_' + DigestUtils.md5Hex(uri.toString());
-		Files.copy(outputFile.toPath(), new File(this.basedir, fileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
-		// update index
-		this.index.put(uri, fileName);
 	}
 
     private static void createIfNeeded(final File basedir) {

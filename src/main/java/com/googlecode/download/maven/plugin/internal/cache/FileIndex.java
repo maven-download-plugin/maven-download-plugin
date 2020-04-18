@@ -1,6 +1,7 @@
 package com.googlecode.download.maven.plugin.internal.cache;
 
 import java.net.URI;
+import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  * Convenient map to search for the path where file is locally stored
@@ -20,18 +21,15 @@ interface FileIndex {
     void put(URI uri, String path);
 
     /**
-     * Check if a path associated with the uri key in the index.
-     * <p>Use this method before actually trying to get value.
-     * @param uri index key
-     * @return true if some path associated with given key
-     */
-    boolean contains(URI uri);
-
-    /**
      * Gets stored value by the key.
      * @param uri index key
-     * @return path by given uri key; never NULL
-     * @throws IllegalStateException in case key is not found
+     * @return path by given uri key; {@literal null} if not found.
      */
     String get(URI uri);
+
+    /**
+     * The lock to be used when accessing the index.
+     * @return The lock.
+     */
+    ReadWriteLock getLock();
 }
