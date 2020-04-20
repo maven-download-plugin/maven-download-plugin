@@ -1,7 +1,7 @@
 package com.googlecode.download.maven.plugin.internal.cache;
 
 import java.net.URI;
-import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Convenient map to search for the path where file is locally stored
@@ -31,5 +31,5 @@ interface FileIndex {
      * The lock to be used when accessing the index.
      * @return The lock.
      */
-    ReadWriteLock getLock();
+    ReentrantLock getLock();
 }
