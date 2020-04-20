@@ -77,10 +77,10 @@ public final class DownloadCache {
     public File getArtifact(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
 		final String res;
 		try {
-			this.index.getLock().readLock().lock();
+			this.index.getLock().lock();
 			res = this.getEntry(uri, md5, sha1, sha256, sha512);
 		} finally {
-			this.index.getLock().readLock().unlock();
+			this.index.getLock().unlock();
 		}
 		if (res != null) {
 			return new File(this.basedir, res);
@@ -102,7 +102,7 @@ public final class DownloadCache {
 			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-512"));
 		}
 		try {
-			this.index.getLock().writeLock().lock();
+			this.index.getLock().lock();
 			final String entry = this.getEntry(uri, md5, sha1, sha256, sha512);
 			if (entry != null) {
 				return; // entry already here
@@ -118,7 +118,7 @@ public final class DownloadCache {
 			// update index
 			this.index.put(uri, fileName);
 		} finally {
-			this.index.getLock().writeLock().unlock();
+			this.index.getLock().unlock();
 		}
 	}
 

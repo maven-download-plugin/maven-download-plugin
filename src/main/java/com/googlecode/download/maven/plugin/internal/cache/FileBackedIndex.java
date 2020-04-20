@@ -14,8 +14,7 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.concurrent.NotThreadSafe;
 
 /**
@@ -30,7 +29,7 @@ final class FileBackedIndex implements FileIndex {
 
     private final Map<URI, String> index = new HashMap<>();
     private final File storage;
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final ReentrantLock lock = new ReentrantLock();
 
     /**
      * Creates index backed by file "index.ser" in baseDir.
@@ -74,7 +73,7 @@ final class FileBackedIndex implements FileIndex {
     }
 
     @Override
-    public ReadWriteLock getLock() {
+    public ReentrantLock getLock() {
         return this.lock;
     }
     /**
