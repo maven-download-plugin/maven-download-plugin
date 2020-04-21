@@ -15,11 +15,11 @@
 package com.googlecode.download.maven.plugin.internal;
 
 import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
+import com.googlecode.download.maven.plugin.internal.signature.Signatures;
 import java.io.File;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
-import java.security.MessageDigest;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -276,7 +276,7 @@ public class WGet extends AbstractMojo {
     private long maxLockWaitTime;
 
     /**
-     * Method call whent he mojo is executed for the first time.
+     * Method call when the mojo is executed for the first time.
      *
      * @throws MojoExecutionException if an error is occuring in this mojo.
      * @throws MojoFailureException   if an error is occuring in this mojo.
@@ -328,6 +328,9 @@ public class WGet extends AbstractMojo {
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
         );
 
+        final Signatures signatures = new Signatures(
+            this.md5, this.sha1, this.sha256, this.sha512, this.getLog()
+        );
         // DO
         boolean lockAcquired = false;
         try {
@@ -350,40 +353,14 @@ public class WGet extends AbstractMojo {
             if (haveFile) {
                 boolean signatureMatch = true;
                 if (this.checkSignature) {
-                    String expectedDigest = null, algorithm = null;
-                    if (this.md5 != null) {
-                        expectedDigest = this.md5;
-                        algorithm = "MD5";
-                    }
-
-                    if (this.sha1 != null) {
-                        expectedDigest = this.sha1;
-                        algorithm = "SHA1";
-                    }
-
-                    if (this.sha256 != null) {
-                        expectedDigest = this.sha256;
-                        algorithm = "SHA-256";
-                    }
-
-                    if (this.sha512 != null) {
-                        expectedDigest = this.sha512;
-                        algorithm = "SHA-512";
-                    }
-
-                    if (expectedDigest != null) {
-                        try {
-                            SignatureUtils.verifySignature(outputFile, expectedDigest,
-                                MessageDigest.getInstance(algorithm));
-                        } catch (MojoFailureException e) {
-                            getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected signature. " +
-                                "You should consider checking the specified signature is correctly set.");
-                            signatureMatch = false;
-                        }
+                    try {
+                        signatures.validate(outputFile);
+                    } catch (final MojoFailureException e) {
+                        getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected signature. " +
+                            "You should consider checking the specified signature is correctly set.");
+                        signatureMatch = false;
                     }
                 }
-
-                // TODO verify last modification date
                 if (!signatureMatch) {
                     outputFile.delete();
                     haveFile = false;
@@ -397,7 +374,7 @@ public class WGet extends AbstractMojo {
             }
 
             if (!haveFile) {
-                File cached = cache.getArtifact(this.uri, this.md5, this.sha1, this.sha256, this.sha512);
+                File cached = cache.getArtifact(this.uri, signatures);
                 if (!this.skipCache && cached != null && cached.exists()) {
                     getLog().info("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
@@ -405,23 +382,8 @@ public class WGet extends AbstractMojo {
                     boolean done = false;
                     while (!done && this.retries > 0) {
                         try {
-                            doGet(outputFile);
-                            if (this.md5 != null) {
-                                SignatureUtils.verifySignature(outputFile, this.md5,
-                                    MessageDigest.getInstance("MD5"));
-                            }
-                            if (this.sha1 != null) {
-                                SignatureUtils.verifySignature(outputFile, this.sha1,
-                                    MessageDigest.getInstance("SHA1"));
-                            }
-                            if (this.sha256 != null) {
-                                SignatureUtils.verifySignature(outputFile, this.sha256,
-                                    MessageDigest.getInstance("SHA-256"));
-                            }
-                            if (this.sha512 != null) {
-                                SignatureUtils.verifySignature(outputFile, this.sha512,
-                                    MessageDigest.getInstance("SHA-512"));
-                            }
+                            this.doGet(outputFile);
+                            signatures.validate(outputFile);
                             done = true;
                         } catch (Exception ex) {
                             getLog().warn("Could not get content", ex);
@@ -432,7 +394,7 @@ public class WGet extends AbstractMojo {
                         }
                     }
                     if (!done) {
-                        if (failOnError) {
+                        if (this.failOnError) {
                             throw new MojoFailureException("Could not get content");
                         } else {
                             getLog().warn("Not failing download despite download failure.");
@@ -441,14 +403,14 @@ public class WGet extends AbstractMojo {
                     }
                 }
             }
-            cache.install(this.uri, outputFile, this.md5, this.sha1, this.sha256, this.sha512);
+            cache.install(this.uri, outputFile, signatures);
             if (this.unpack) {
                 unpack(outputFile);
                 buildContext.refresh(outputDirectory);
             } else {
             	buildContext.refresh(outputFile);
             }
-        } catch (Exception ex) {
+        } catch (final Exception ex) {
             throw new MojoExecutionException("IO Error", ex);
         } finally {
             if (lockAcquired) {

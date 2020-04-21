@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2012, Red Hat Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +15,11 @@
  */
 package com.googlecode.download.maven.plugin.internal.cache;
 
-import com.googlecode.download.maven.plugin.internal.SignatureUtils;
+import com.googlecode.download.maven.plugin.internal.signature.Signatures;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.security.MessageDigest;
 import org.apache.commons.codec.digest.DigestUtils;
 
 /**
@@ -39,28 +38,17 @@ public final class DownloadCache {
         this.basedir = cacheDirectory;
     }
 
-	private String getEntry(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
+	private String getEntry(URI uri, final Signatures signatures) {
 		final String res = this.index.get(uri);
 		if (res == null) {
 			return null;
 		}
-		File resFile = new File(this.basedir, res);
-		if (!resFile.isFile()) {
+		final File resFile = new File(this.basedir, res);
+		if (resFile.isFile() && signatures.isValid(resFile)) {
+			return res;
+		} else {
 			return null;
 		}
-		if (md5 != null && !md5.equals(SignatureUtils.getMD5(resFile))) {
-			return null;
-		}
-		if (sha1 != null && !sha1.equals(SignatureUtils.getSHA1(resFile))) {
-			return null;
-		}
-		if (sha256 != null && !sha256.equals(SignatureUtils.getSHA256(resFile))) {
-			return null;
-		}
-		if (sha512 != null && !sha512.equals(SignatureUtils.getSHA512(resFile))) {
-			return null;
-		}
-		return res;
 	}
 
 	/**
@@ -68,17 +56,14 @@ public final class DownloadCache {
 	 * if expected signatures don't match cached ones, returns null.
 	 * available in cache,
 	 * @param uri URL of the file
-	 * @param md5 MD5 signature to verify file. Can be null =&gt; No check
-	 * @param sha1 Sha1 signature to verify file. Can be null =&gt; No check
-	 * @param sha256 Sha256 signature to verify file. Can be null =&gt; No check
-	 * @param sha512 Sha512 signature to verify file. Can be null =&gt; No check
+	 * @param signatures Supplied signatures.
 	 * @return A File when cache is found, null if no available cache
 	 */
-    public File getArtifact(URI uri, String md5, String sha1, String sha256, String sha512) throws Exception {
+    public File getArtifact(URI uri, final Signatures signatures) {
 		final String res;
 		try {
 			this.index.getLock().lock();
-			res = this.getEntry(uri, md5, sha1, sha256, sha512);
+			res = this.getEntry(uri, signatures);
 		} finally {
 			this.index.getLock().unlock();
 		}
@@ -88,22 +73,10 @@ public final class DownloadCache {
 		return null;
 	}
 
-    public void install(URI uri, File outputFile, String md5, String sha1, String sha256, String sha512) throws Exception {
-		if (md5 == null) {
-			md5 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("MD5"));
-		}
-		if (sha1 == null) {
-			sha1 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA1"));
-		}
-		if (sha256 == null) {
-			sha256 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-256"));
-		}
-		if (sha512 == null) {
-			sha512 = SignatureUtils.computeSignatureAsString(outputFile, MessageDigest.getInstance("SHA-512"));
-		}
+    public void install(URI uri, File outputFile, final Signatures signatures) throws Exception {
 		try {
 			this.index.getLock().lock();
-			final String entry = this.getEntry(uri, md5, sha1, sha256, sha512);
+			final String entry = this.getEntry(uri, signatures);
 			if (entry != null) {
 				return; // entry already here
 			}
