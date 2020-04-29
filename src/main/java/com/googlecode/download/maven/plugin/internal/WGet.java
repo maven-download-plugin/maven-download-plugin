@@ -20,11 +20,16 @@ import java.io.File;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
@@ -44,7 +49,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+import org.apache.http.message.BasicLineParser;
 import org.apache.http.ssl.SSLContexts;
+import org.apache.http.util.CharArrayBuffer;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -229,6 +236,12 @@ public class WGet extends AbstractMojo {
      */
     @Parameter(property = "checkSignature", defaultValue = "false")
     private boolean checkSignature;
+
+    /**
+     * A list of additional HTTP headers to send with the request
+     */
+    @Parameter(property = "download.plugin.headers")
+    private List<String> headers = new ArrayList<>();
 
     @Parameter(property = "session", readonly = true)
     private MavenSession session;
@@ -523,8 +536,19 @@ public class WGet extends AbstractMojo {
             if (credentialsProvider != null) {
                 clientContext.setCredentialsProvider(credentialsProvider);
             }
-            fileRequester.download(this.uri, outputFile, clientContext);
+            fileRequester.download(this.uri, outputFile, clientContext, getAdditionalHeaders());
         }
+    }
+
+    private List<Header> getAdditionalHeaders() {
+        return headers.stream()
+                .map(header -> {
+                    CharArrayBuffer buffer = new CharArrayBuffer(header.length());
+                    buffer.append(header);
+                    return buffer;
+                })
+                .map(BasicLineParser.INSTANCE::parseHeader)
+                .collect(Collectors.toList());
     }
 
     private String decrypt(String str, String server) {
