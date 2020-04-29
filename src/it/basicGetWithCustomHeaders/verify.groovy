@@ -1,5 +1,9 @@
-File f = new File(basedir, "target/http-request-headers")
+import groovy.json.JsonSlurper
+
+File f = new File(basedir, "target/get")
 assert f.exists() : "File $f.absolutePath does not exist"
 assert f.length() > 0 : "File is empty"
-assert f.text.contains("this is the first custom header") : "First custom header missing"
-assert f.text.contains("this is the second custom header") : "Second custom header missing"
+
+def content = new JsonSlurper().parseText(f.text);
+assert content.headers["x-custom-1"] == "first custom header"
+assert content.headers["x-custom-2"] == "second custom header"
