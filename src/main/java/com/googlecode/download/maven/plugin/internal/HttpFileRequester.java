@@ -21,7 +21,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.List;
 
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ResponseHandler;
@@ -49,8 +51,9 @@ public class HttpFileRequester {
      * @param outputFile the output file
      * @param clientContext the HTTP execution context.
      */
-    public void download(final URI uri, final File outputFile, final HttpContext clientContext) throws Exception {
+    public void download(final URI uri, final File outputFile, final HttpContext clientContext, List<Header> headers) throws Exception {
         final HttpGet httpGet = new HttpGet(uri);
+        headers.forEach(httpGet::setHeader);
         httpClient.execute(httpGet, new ResponseHandler<Void>() {
 
             @Override
