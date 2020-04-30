@@ -20,7 +20,7 @@ import java.io.File;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,9 +49,8 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
-import org.apache.http.message.BasicLineParser;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.CharArrayBuffer;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -241,7 +240,7 @@ public class WGet extends AbstractMojo {
      * A list of additional HTTP headers to send with the request
      */
     @Parameter(property = "download.plugin.headers")
-    private List<String> headers = new ArrayList<>();
+    private Map<String, String> headers = new HashMap<>();
 
     @Parameter(property = "session", readonly = true)
     private MavenSession session;
@@ -541,13 +540,8 @@ public class WGet extends AbstractMojo {
     }
 
     private List<Header> getAdditionalHeaders() {
-        return headers.stream()
-                .map(header -> {
-                    CharArrayBuffer buffer = new CharArrayBuffer(header.length());
-                    buffer.append(header);
-                    return buffer;
-                })
-                .map(BasicLineParser.INSTANCE::parseHeader)
+        return headers.entrySet().stream()
+                .map(pair -> new BasicHeader(pair.getKey(), pair.getValue()))
                 .collect(Collectors.toList());
     }
 
