@@ -24,8 +24,8 @@
 						<configuration>
 							<url>https://postman-echo.com/get</url>
 							<headers>
-								<header>X-Custom-1: first custom header</header>
-								<header>X-Custom-2: second custom header</header>
+								<X-Custom-1>first custom header</X-Custom-1>
+								<X-Custom-2>second custom header</X-Custom-2>
 							</headers>
 						</configuration>
 					</execution>
