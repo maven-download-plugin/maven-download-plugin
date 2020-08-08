@@ -388,7 +388,7 @@ public class WGet extends AbstractMojo {
             if (!haveFile) {
                 File cached = cache.getArtifact(this.uri, signatures);
                 if (!this.skipCache && cached != null && cached.exists()) {
-                    getLog().info("Got from cache: " + cached.getAbsolutePath());
+                    getLog().debug("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
                 } else {
                     boolean done = false;

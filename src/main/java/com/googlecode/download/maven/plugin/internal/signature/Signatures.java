@@ -38,7 +38,7 @@ public final class Signatures {
     ) {
         this.supplied = Signatures.create(md5, sha1, sha256, sha512);
         if (this.supplied.isEmpty()) {
-            log.warn("No signatures were supplied, skipping file validation");
+            log.debug("No signatures were supplied, skipping file validation");
         } else if (this.supplied.size() > 1) {
             log.warn("More than one signature is supplied. This may be slow for big files. Consider using a single signature");
         }
