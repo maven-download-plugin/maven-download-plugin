@@ -22,8 +22,8 @@
 							<goal>wget</goal>
 						</goals>
 						<configuration>
-							<url>http://www.lolcats.com/images/u/08/23/lolcatsdotcomcm90ebvhwphtzqvf.jpg</url>
-							<sha256>c9485874b6a0a8f6293da1ee41e88c2e9a713949cba13e49c6c22d2d6a6bd452</sha256>
+							<url>https://camo.githubusercontent.com/b104774339e1617d123179a20a9deec29c106411/687474703a2f2f696d672e71756c6963652e636f6d2f6c6f676f2d6269672e706e67</url>
+							<sha256>400fc4339b44f4eaa12eaa3539e2aaec747e090bc5bf491f6b37bb592e01384c</sha256>
 							<checkSignature>true</checkSignature>
 						</configuration>
 					</execution>
