@@ -24,7 +24,7 @@
 							<goal>wget</goal>
 						</goals>
 						<configuration>
-							<url>${test.jpg.file.url}</url>
+							<url>${test.img.file.url}</url>
 							<skipCache>true</skipCache>
 							<overwrite>true</overwrite>
 						</configuration>
@@ -57,7 +57,7 @@
 						<configuration>
 							<properties>
 								<target>${project.build.directory}</target>
-                                <testfilename>${test.jpg.file.name}</testfilename>
+                                <testfilename>${test.img.file.name}</testfilename>
 							</properties>
 							<scripts>
 								<script>
@@ -86,7 +86,7 @@
                             <goal>wget</goal>
                         </goals>
                         <configuration>
-                            <url>${test.jpg.file.url}</url>
+                            <url>${test.img.file.url}</url>
                             <skipCache>true</skipCache>
                             <overwrite>true</overwrite>
                         </configuration>

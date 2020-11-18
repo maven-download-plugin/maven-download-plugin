@@ -22,7 +22,7 @@
 							<goal>wget</goal>
 						</goals>
 						<configuration>
-							<url>https://camo.githubusercontent.com/b104774339e1617d123179a20a9deec29c106411/687474703a2f2f696d672e71756c6963652e636f6d2f6c6f676f2d6269672e706e67</url>
+							<url>${test.img.file.url}</url>
 							<sha256>wrong_md5</sha256>
 						</configuration>
 					</execution>
