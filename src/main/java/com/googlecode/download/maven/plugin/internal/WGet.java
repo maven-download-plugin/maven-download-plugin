@@ -28,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-
 import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
@@ -312,6 +311,9 @@ public class WGet extends AbstractMojo {
         if (settings == null) {
             getLog().warn("settings is null");
         }
+        if (this.settings.isOffline()) {
+            getLog().debug("maven-download-plugin:wget offline mode");
+        }
         getLog().debug("Got settings");
         if (retries < 1) {
             throw new MojoFailureException("retries must be at least 1");
@@ -391,6 +393,11 @@ public class WGet extends AbstractMojo {
                     getLog().debug("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
                 } else {
+                    if (this.settings.isOffline() && this.failOnError) {
+                        throw new MojoExecutionException("No file in cache and maven is in offline mode");
+                    } else {
+                        getLog().warn("Ignoring download failure.");
+                    }
                     boolean done = false;
                     while (!done && this.retries > 0) {
                         try {
@@ -409,7 +416,7 @@ public class WGet extends AbstractMojo {
                         if (this.failOnError) {
                             throw new MojoFailureException("Could not get content");
                         } else {
-                            getLog().warn("Not failing download despite download failure.");
+                            getLog().warn("Ignoring download failure.");
                             return;
                         }
                     }
