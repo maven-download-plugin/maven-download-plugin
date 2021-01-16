@@ -63,6 +63,7 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.proxy.ProxyInfo;
+import org.apache.maven.wagon.proxy.ProxyUtils;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.bzip2.BZip2UnArchiver;
 import org.codehaus.plexus.archiver.gzip.GZipUnArchiver;
@@ -503,8 +504,8 @@ public class WGet extends AbstractMojo {
         }
 
         final HttpRoutePlanner routePlanner;
-        ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
-        if (proxyInfo != null && proxyInfo.getHost() != null ) {
+        final ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
+        if (this.useHttpProxy(proxyInfo)) {
             routePlanner = new DefaultProxyRoutePlanner(new HttpHost(proxyInfo.getHost(), proxyInfo.getPort()));
             if (proxyInfo.getUserName() != null) {
                 final Credentials creds;
@@ -564,5 +565,32 @@ public class WGet extends AbstractMojo {
             );
             return str;
         }
+    }
+
+    /**
+     * Check if target host should be accessed via proxy.
+     * @param proxyInfo Proxy info to check for proxy config.
+     * @return True if the target host will be requested via a proxy.
+     */
+    private boolean useHttpProxy(final ProxyInfo proxyInfo) {
+        final boolean result;
+        if (proxyInfo == null) {
+            result = false;
+        } else {
+            if (proxyInfo.getHost() != null) {
+                result = true;
+                getLog().debug(
+                    String.format("%s is a proxy host", this.uri.getHost())
+                );
+            } else if (proxyInfo.getNonProxyHosts() != null) {
+                result = !ProxyUtils.validateNonProxyHosts(proxyInfo, this.uri.getHost());
+                getLog().debug(
+                    String.format("%s is a non-proxy host", this.uri.getHost())
+                );
+            } else {
+                result = false;
+            }
+        }
+        return result;
     }
 }
