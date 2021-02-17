@@ -584,20 +584,20 @@ public class WGet extends AbstractMojo {
         if (proxyInfo == null) {
             result = false;
         } else {
-            if (proxyInfo.getHost() != null) {
-                if (proxyInfo.getNonProxyHosts() != null) {
-                    result = !ProxyUtils.validateNonProxyHosts(proxyInfo, this.uri.getHost());
-                    getLog().debug(
-                        String.format("%s is a non-proxy host", this.uri.getHost())
-                    );
-                } else {
+            if (proxyInfo.getHost() == null) {
+                result = false;
+            } else {
+                if (proxyInfo.getNonProxyHosts() == null) {
                     result = true;
                     getLog().debug(
                         String.format("%s is a proxy host", this.uri.getHost())
                     );
+                } else {
+                    result = !ProxyUtils.validateNonProxyHosts(proxyInfo, this.uri.getHost());
+                    getLog().debug(
+                        String.format("%s is a non-proxy host", this.uri.getHost())
+                    );
                 }
-            } else {
-                result = false;
             }
         }
         return result;
