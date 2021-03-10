@@ -50,14 +50,14 @@ It provides caching and signature verification.
 			<goals>
 				<goal>wget</goal>
 			</goals>
-			<configuration>
-				<url>http://downloads.sourceforge.net/project/jbpm/jBPM%203/jbpm-3.1.4/jbpm-3.1.4.zip</url>
-				<unpack>true</unpack>
-				<outputDirectory>${project.build.directory}/jbpm-3.1.4</outputDirectory>
-				<md5>df65b5642f33676313ebe4d5b69a3fff</md5>
-			</configuration>
 		</execution>
 	</executions>
+	<configuration>
+		<url>http://downloads.sourceforge.net/project/jbpm/jBPM%203/jbpm-3.1.4/jbpm-3.1.4.zip</url>
+		<unpack>true</unpack>
+		<outputDirectory>${project.build.directory}/jbpm-3.1.4</outputDirectory>
+		<md5>df65b5642f33676313ebe4d5b69a3fff</md5>
+	</configuration>
 </plugin>
 ```
 
