@@ -237,6 +237,12 @@ public class WGet extends AbstractMojo {
     private boolean checkSignature;
 
     /**
+     * Whether to follow redirects (302)
+     */
+    @Parameter(property = "download.plugin.followRedirects", defaultValue = "false")
+    private boolean followRedirects;
+
+    /**
      * A list of additional HTTP headers to send with the request
      */
     @Parameter(property = "download.plugin.headers")
@@ -473,6 +479,7 @@ public class WGet extends AbstractMojo {
             requestConfig = RequestConfig.custom()
                     .setConnectTimeout(readTimeOut)
                     .setSocketTimeout(readTimeOut)
+                    .setRedirectsEnabled(followRedirects)
                     .build();
         } else {
             requestConfig = RequestConfig.DEFAULT;
