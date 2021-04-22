@@ -104,7 +104,7 @@ public class WGet extends AbstractMojo {
                         .register("http", PlainConnectionSocketFactory.getSocketFactory())
                         .register("https", new SSLConnectionSocketFactory(
                                 SSLContexts.createSystemDefault(),
-                                new String[] { "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2" },
+                                SSLProtocols.supported(),
                                 null,
                                 SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
                         .build(),
