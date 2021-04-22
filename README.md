@@ -28,7 +28,7 @@ You can use some alternative repositories. See https://docs.sonatype.org/display
 
 ### "Artifact" goal
 Meant to be used from anywhere on the system to download an artifact at a specific location.  Does not need a pom file to be run and can be used directly from the command line.
-Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/plugins/maven-dependency-plugin/get-mojo.html) or [maven-dependency-plugin:unpack](http://maven.apache.org/plugins/maven-dependency-plugin/unpack-mojo.html maven-dependency-plugin:unpack) mojoes.
+Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/plugins/maven-dependency-plugin/get-mojo.html) or [maven-dependency-plugin:unpack](http://maven.apache.org/plugins/maven-dependency-plugin/unpack-mojo.html) mojoes.
 
 
 ```
@@ -76,7 +76,7 @@ mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.6.1](http://maven-download-plugin.github.com/maven-download-plugin/docsite/1.6.0/) and [for snapshot](http://maven-download-plugin.github.com/maven-download-plugin/docsite/snapshot/).
+See also generated documentation pages [for 1.6.1](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.6.0/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
