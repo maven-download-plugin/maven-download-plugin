@@ -104,7 +104,7 @@ public class WGet extends AbstractMojo {
                         .register("http", PlainConnectionSocketFactory.getSocketFactory())
                         .register("https", new SSLConnectionSocketFactory(
                                 SSLContexts.createSystemDefault(),
-                                new String[] { "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2" },
+                                SSLProtocols.supported(),
                                 null,
                                 SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
                         .build(),
@@ -235,6 +235,12 @@ public class WGet extends AbstractMojo {
      */
     @Parameter(property = "checkSignature", defaultValue = "false")
     private boolean checkSignature;
+
+    /**
+     * Whether to follow redirects (302)
+     */
+    @Parameter(property = "download.plugin.followRedirects", defaultValue = "false")
+    private boolean followRedirects;
 
     /**
      * A list of additional HTTP headers to send with the request
@@ -473,6 +479,7 @@ public class WGet extends AbstractMojo {
             requestConfig = RequestConfig.custom()
                     .setConnectTimeout(readTimeOut)
                     .setSocketTimeout(readTimeOut)
+                    .setRedirectsEnabled(followRedirects)
                     .build();
         } else {
             requestConfig = RequestConfig.DEFAULT;
@@ -577,18 +584,20 @@ public class WGet extends AbstractMojo {
         if (proxyInfo == null) {
             result = false;
         } else {
-            if (proxyInfo.getHost() != null) {
-                result = true;
-                getLog().debug(
-                    String.format("%s is a proxy host", this.uri.getHost())
-                );
-            } else if (proxyInfo.getNonProxyHosts() != null) {
-                result = !ProxyUtils.validateNonProxyHosts(proxyInfo, this.uri.getHost());
-                getLog().debug(
-                    String.format("%s is a non-proxy host", this.uri.getHost())
-                );
-            } else {
+            if (proxyInfo.getHost() == null) {
                 result = false;
+            } else {
+                if (proxyInfo.getNonProxyHosts() == null) {
+                    result = true;
+                    getLog().debug(
+                        String.format("%s is a proxy host", this.uri.getHost())
+                    );
+                } else {
+                    result = !ProxyUtils.validateNonProxyHosts(proxyInfo, this.uri.getHost());
+                    getLog().debug(
+                        String.format("%s is a non-proxy host", this.uri.getHost())
+                    );
+                }
             }
         }
         return result;

@@ -28,11 +28,11 @@ You can use some alternative repositories. See https://docs.sonatype.org/display
 
 ### "Artifact" goal
 Meant to be used from anywhere on the system to download an artifact at a specific location.  Does not need a pom file to be run and can be used directly from the command line.
-Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/plugins/maven-dependency-plugin/get-mojo.html) or [maven-dependency-plugin:unpack](http://maven.apache.org/plugins/maven-dependency-plugin/unpack-mojo.html maven-dependency-plugin:unpack) mojoes.
+Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/plugins/maven-dependency-plugin/get-mojo.html) or [maven-dependency-plugin:unpack](http://maven.apache.org/plugins/maven-dependency-plugin/unpack-mojo.html) mojoes.
 
 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.6.1:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.6.3:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
 ```
 
 ### "WGet" goal
@@ -42,7 +42,7 @@ It provides caching and signature verification.
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>download-maven-plugin</artifactId>
-	<version>1.6.1</version>
+	<version>1.6.3</version>
 	<executions>
 		<execution>
 			<id>install-jbpm</id>
@@ -50,14 +50,14 @@ It provides caching and signature verification.
 			<goals>
 				<goal>wget</goal>
 			</goals>
-			<configuration>
-				<url>http://downloads.sourceforge.net/project/jbpm/jBPM%203/jbpm-3.1.4/jbpm-3.1.4.zip</url>
-				<unpack>true</unpack>
-				<outputDirectory>${project.build.directory}/jbpm-3.1.4</outputDirectory>
-				<md5>df65b5642f33676313ebe4d5b69a3fff</md5>
-			</configuration>
 		</execution>
 	</executions>
+	<configuration>
+		<url>http://downloads.sourceforge.net/project/jbpm/jBPM%203/jbpm-3.1.4/jbpm-3.1.4.zip</url>
+		<unpack>true</unpack>
+		<outputDirectory>${project.build.directory}/jbpm-3.1.4</outputDirectory>
+		<md5>df65b5642f33676313ebe4d5b69a3fff</md5>
+	</configuration>
 </plugin>
 ```
 
@@ -76,7 +76,7 @@ mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.6.1](http://maven-download-plugin.github.com/maven-download-plugin/docsite/1.6.0/) and [for snapshot](http://maven-download-plugin.github.com/maven-download-plugin/docsite/snapshot/).
+See also generated documentation pages [for 1.6.3](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.6.3/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
