@@ -415,10 +415,12 @@ public class WGet extends AbstractMojo {
                     getLog().debug("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
                 } else {
-                    if (this.settings.isOffline() && this.failOnError) {
-                        throw new MojoExecutionException("No file in cache and maven is in offline mode");
-                    } else {
-                        getLog().warn("Ignoring download failure.");
+                    if (this.settings.isOffline()) {
+                        if (this.failOnError) {
+                            throw new MojoExecutionException("No file in cache and maven is in offline mode");
+                        } else {
+                            getLog().warn("Ignoring download failure.");
+                        }
                     }
                     boolean done = false;
                     while (!done && this.retries > 0) {
