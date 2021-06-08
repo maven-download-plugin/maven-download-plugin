@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.googlecode.download.maven.plugin.internal.signature;
+package com.googlecode.download.maven.plugin.internal.checksum;
 
 /**
- * Supported signature types with corresponding digest algos.
+ * Supported checksum types with corresponding digest algos.
  * @author Paul Polishchuk
  */
-enum Signature {
+enum Checksum {
     MD5("MD5"),
     SHA1("SHA1"),
     SHA256("SHA-256"),
@@ -27,7 +27,7 @@ enum Signature {
 
     private final String algo;
 
-    Signature(final String algo) {
+    Checksum(final String algo) {
         this.algo = algo;
     }
 

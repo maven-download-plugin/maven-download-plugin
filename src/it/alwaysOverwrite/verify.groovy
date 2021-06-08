@@ -3,7 +3,7 @@
  * Given plugin configuration:
  *  - skipCache = true
  *  - overwrite = true
- *  - no signature specified
+ *  - no checksum specified
  * When Run the plugin to download the zip
  * And Save timestamp into "stamp" file
  * And Run the plugin to download the same zip

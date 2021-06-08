@@ -15,7 +15,7 @@
 package com.googlecode.download.maven.plugin.internal;
 
 import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
-import com.googlecode.download.maven.plugin.internal.signature.Signatures;
+import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
 import java.io.File;
 import java.net.ProxySelector;
 import java.net.URI;
@@ -141,29 +141,29 @@ public class WGet extends AbstractMojo {
     private File outputDirectory;
 
     /**
-     * The md5 of the file. If set, file signature will be compared to this
-     * signature and plugin will fail.
+     * The md5 of the file. If set, file checksum will be compared to this
+     * checksum and plugin will fail.
      */
     @Parameter(property = "download.verify.md5")
     private String md5;
 
     /**
-     * The sha1 of the file. If set, file signature will be compared to this
-     * signature and plugin will fail.
+     * The sha1 of the file. If set, file checksum will be compared to this
+     * checksum and plugin will fail.
      */
     @Parameter(property = "download.verify.sha1")
     private String sha1;
 
     /**
-     * The sha256 of the file. If set, file signature will be compared to this
-     * signature and plugin will fail.
+     * The sha256 of the file. If set, file checksum will be compared to this
+     * checksum and plugin will fail.
      */
     @Parameter(property = "download.verify.sha256")
     private String sha256;
 
     /**
-     * The sha512 of the file. If set, file signature will be compared to this
-     * signature and plugin will fail.
+     * The sha512 of the file. If set, file checksum will be compared to this
+     * checksum and plugin will fail.
      */
     @Parameter(property = "download.verify.sha512")
     private String sha512;
@@ -231,9 +231,24 @@ public class WGet extends AbstractMojo {
     private boolean skip;
 
     /**
-     * Whether to check the signature of existing files
+     * Whether to verify the checksum of an existing file
+     * <p>
+     * By default, checksum verification only occurs after downloading a file. This option additionally enforces
+     * checksum verification for already existing, previously downloaded (or manually copied) files. If the checksum
+     * does not match, re-download the file.
+     * <p>
+     * Use this option in order to ensure that a new download attempt is made after a previously interrupted build or
+     * network connection or some other event corrupted a file.
+     */
+    @Parameter(property = "alwaysVerifyChecksum", defaultValue = "false")
+    private boolean alwaysVerifyChecksum;
+
+    /**
+     * @deprecated The option name is counter-intuitive and not related to signatures but to checksums, in fact.
+     * Please use {@link #alwaysVerifyChecksum} instead. This option might be removed in a future release.
      */
     @Parameter(property = "checkSignature", defaultValue = "false")
+    @Deprecated
     private boolean checkSignature;
 
     /**
@@ -349,7 +364,7 @@ public class WGet extends AbstractMojo {
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
         );
 
-        final Signatures signatures = new Signatures(
+        final Checksums checksums = new Checksums(
             this.md5, this.sha1, this.sha256, this.sha512, this.getLog()
         );
         // DO
@@ -372,30 +387,30 @@ public class WGet extends AbstractMojo {
             }
             boolean haveFile = outputFile.exists();
             if (haveFile) {
-                boolean signatureMatch = true;
-                if (this.checkSignature) {
+                boolean checksumMatch = true;
+                if (this.alwaysVerifyChecksum || this.checkSignature) {
                     try {
-                        signatures.validate(outputFile);
+                        checksums.validate(outputFile);
                     } catch (final MojoFailureException e) {
-                        getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected signature. " +
-                            "You should consider checking the specified signature is correctly set.");
-                        signatureMatch = false;
+                        getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected checksum. " +
+                            "You should consider checking the specified checksum is correctly set.");
+                        checksumMatch = false;
                     }
                 }
-                if (!signatureMatch) {
+                if (!checksumMatch) {
                     outputFile.delete();
                     haveFile = false;
                 } else if (!overwrite) {
                     getLog().info("File already exist, skipping");
                 } else {
-                    // If no signature provided and owerwriting requested we
+                    // If no checksum provided and owerwriting requested we
                     // will treat the fact as if there is no file in the cache.
                     haveFile = false;
                 }
             }
 
             if (!haveFile) {
-                File cached = cache.getArtifact(this.uri, signatures);
+                File cached = cache.getArtifact(this.uri, checksums);
                 if (!this.skipCache && cached != null && cached.exists()) {
                     getLog().debug("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
@@ -409,7 +424,7 @@ public class WGet extends AbstractMojo {
                     while (!done && this.retries > 0) {
                         try {
                             this.doGet(outputFile);
-                            signatures.validate(outputFile);
+                            checksums.validate(outputFile);
                             done = true;
                         } catch (Exception ex) {
                             getLog().warn("Could not get content", ex);
@@ -429,7 +444,7 @@ public class WGet extends AbstractMojo {
                     }
                 }
             }
-            cache.install(this.uri, outputFile, signatures);
+            cache.install(this.uri, outputFile, checksums);
             if (this.unpack) {
                 unpack(outputFile);
                 buildContext.refresh(outputDirectory);
