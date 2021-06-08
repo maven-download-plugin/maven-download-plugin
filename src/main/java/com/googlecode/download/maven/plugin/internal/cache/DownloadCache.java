@@ -15,7 +15,7 @@
  */
 package com.googlecode.download.maven.plugin.internal.cache;
 
-import com.googlecode.download.maven.plugin.internal.signature.Signatures;
+import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
@@ -38,13 +38,13 @@ public final class DownloadCache {
         this.basedir = cacheDirectory;
     }
 
-	private String getEntry(URI uri, final Signatures signatures) {
+	private String getEntry(URI uri, final Checksums checksums) {
 		final String res = this.index.get(uri);
 		if (res == null) {
 			return null;
 		}
 		final File resFile = new File(this.basedir, res);
-		if (resFile.isFile() && signatures.isValid(resFile)) {
+		if (resFile.isFile() && checksums.isValid(resFile)) {
 			return res;
 		} else {
 			return null;
@@ -53,17 +53,17 @@ public final class DownloadCache {
 
 	/**
 	 * Get a File in the download cache. If no cache for this URL, or
-	 * if expected signatures don't match cached ones, returns null.
+	 * if expected checksums don't match cached ones, returns null.
 	 * available in cache,
 	 * @param uri URL of the file
-	 * @param signatures Supplied signatures.
+	 * @param checksums Supplied checksums.
 	 * @return A File when cache is found, null if no available cache
 	 */
-    public File getArtifact(URI uri, final Signatures signatures) {
+    public File getArtifact(URI uri, final Checksums checksums) {
 		final String res;
 		try {
 			this.index.getLock().lock();
-			res = this.getEntry(uri, signatures);
+			res = this.getEntry(uri, checksums);
 		} finally {
 			this.index.getLock().unlock();
 		}
@@ -73,10 +73,10 @@ public final class DownloadCache {
 		return null;
 	}
 
-    public void install(URI uri, File outputFile, final Signatures signatures) throws Exception {
+    public void install(URI uri, File outputFile, final Checksums checksums) throws Exception {
 		try {
 			this.index.getLock().lock();
-			final String entry = this.getEntry(uri, signatures);
+			final String entry = this.getEntry(uri, checksums);
 			if (entry != null) {
 				return; // entry already here
 			}

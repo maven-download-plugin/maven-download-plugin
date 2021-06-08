@@ -37,7 +37,7 @@ mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.6.3:artifact -D
 
 ### "WGet" goal
 This is meant to provide the necessary tooling for downloading anything in your Maven build without having to use Ant scripts.
-It provides caching and signature verification.
+It provides caching and checksum verification.
 ```xml
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>

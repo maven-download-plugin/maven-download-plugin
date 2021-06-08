@@ -24,7 +24,7 @@
 						<configuration>
 							<url>${test.img.file.url}</url>
 							<sha256>400fc4339b44f4eaa12eaa3539e2aaec747e090bc5bf491f6b37bb592e01384c</sha256>
-							<checkSignature>true</checkSignature>
+							<alwaysVerifyChecksum>true</alwaysVerifyChecksum>
 						</configuration>
 					</execution>
 				</executions>

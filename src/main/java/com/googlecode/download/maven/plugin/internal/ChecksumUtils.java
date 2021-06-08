@@ -27,16 +27,16 @@ import org.apache.maven.plugin.MojoFailureException;
 /**
  * @author Mickael Istria (Red Hat Inc)
  */
-public class SignatureUtils {
+public class ChecksumUtils {
 
-    public static void verifySignature(File file, String expectedDigest, MessageDigest digest) throws Exception {
-        String actualDigestHex = SignatureUtils.computeSignatureAsString(file, digest);
+    public static void verifyChecksum(File file, String expectedDigest, MessageDigest digest) throws Exception {
+        String actualDigestHex = ChecksumUtils.computeChecksumAsString(file, digest);
         if (!actualDigestHex.equals(expectedDigest)) {
             throw new MojoFailureException("Not same digest as expected: expected <" + expectedDigest + "> was <" + actualDigestHex + ">");
         }
     }
 
-    public static String computeSignatureAsString(File file,
+    public static String computeChecksumAsString(File file,
         MessageDigest digest) throws IOException {
         InputStream fis = new FileInputStream(file);
         byte[] buffer = new byte[1024];
@@ -53,18 +53,18 @@ public class SignatureUtils {
     }
 
     public static String getMD5(File file) throws IOException, NoSuchAlgorithmException {
-        return computeSignatureAsString(file, MessageDigest.getInstance("MD5"));
+        return computeChecksumAsString(file, MessageDigest.getInstance("MD5"));
     }
 
     public static String getSHA1(File file) throws IOException, NoSuchAlgorithmException {
-        return computeSignatureAsString(file, MessageDigest.getInstance("SHA1"));
+        return computeChecksumAsString(file, MessageDigest.getInstance("SHA1"));
     }
 
     public static String getSHA256(File file) throws IOException, NoSuchAlgorithmException {
-        return computeSignatureAsString(file, MessageDigest.getInstance("SHA-256"));
+        return computeChecksumAsString(file, MessageDigest.getInstance("SHA-256"));
     }
 
     public static String getSHA512(File file) throws IOException, NoSuchAlgorithmException {
-        return computeSignatureAsString(file, MessageDigest.getInstance("SHA-512"));
+        return computeChecksumAsString(file, MessageDigest.getInstance("SHA-512"));
     }
 }

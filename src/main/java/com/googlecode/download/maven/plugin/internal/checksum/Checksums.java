@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.googlecode.download.maven.plugin.internal.signature;
+package com.googlecode.download.maven.plugin.internal.checksum;
 
-import com.googlecode.download.maven.plugin.internal.SignatureUtils;
+import com.googlecode.download.maven.plugin.internal.ChecksumUtils;
 import java.io.File;
 import java.security.MessageDigest;
 import java.util.EnumMap;
@@ -24,31 +24,31 @@ import javax.annotation.Nullable;
 import org.apache.maven.plugin.logging.Log;
 
 /**
- * Signatures supplied to verify file integrity.
+ * Checksums supplied to verify file integrity.
  * @author Paul Polishchuk
  */
-public final class Signatures {
+public final class Checksums {
 
-    private final Map<Signature, String> supplied;
+    private final Map<Checksum, String> supplied;
 
-    public Signatures(
+    public Checksums(
         @Nullable final String md5, @Nullable final String sha1,
         @Nullable final String sha256, @Nullable final String sha512,
         Log log
     ) {
-        this.supplied = Signatures.create(md5, sha1, sha256, sha512);
+        this.supplied = Checksums.create(md5, sha1, sha256, sha512);
         if (this.supplied.isEmpty()) {
-            log.debug("No signatures were supplied, skipping file validation");
+            log.debug("No checksums were supplied, skipping file validation");
         } else if (this.supplied.size() > 1) {
-            log.warn("More than one signature is supplied. This may be slow for big files. Consider using a single signature");
+            log.warn("More than one checksum is supplied. This may be slow for big files. Consider using a single checksum.");
         }
     }
 
     /**
-     * Validates the file with supplied signatures.
+     * Validates the file with supplied checksums.
      * @param file File to validate.
-     * @return True if the file matches all supplied signatures
-     *  or if no signatures were supplied.
+     * @return True if the file matches all supplied checksums
+     *  or if no checksums were supplied.
      */
     public boolean isValid(final File file) {
         boolean valid = true;
@@ -61,13 +61,13 @@ public final class Signatures {
     }
 
     /**
-     * Validates the file with supplied signatures.
+     * Validates the file with supplied checksums.
      * @param file File to validate.
-     * @throws Exception If the file didn't match any supplied signature.
+     * @throws Exception If the file didn't match any supplied checksum.
      */
     public void validate(final File file) throws Exception {
-        for (final Map.Entry<Signature, String> entry : this.supplied.entrySet()) {
-            SignatureUtils.verifySignature(
+        for (final Map.Entry<Checksum, String> entry : this.supplied.entrySet()) {
+            ChecksumUtils.verifyChecksum(
                 file, entry.getValue(),
                 MessageDigest.getInstance(entry.getKey().algo())
             );
@@ -75,30 +75,30 @@ public final class Signatures {
     }
 
     /**
-     * Fill the map of signatures.
-     * @param md5 Supplied md5 signature, may be {@literal null}.
-     * @param sha1 Supplied sha1 signature, may be {@literal null}.
-     * @param sha256 Supplied sha256 signature, may be {@literal null}.
-     * @param sha512 Supplied sha512 signature, may be {@literal null}.
-     * @return A map of a signature type to a digest; {@literal null} digests
+     * Fill the map of checksums.
+     * @param md5 Supplied md5 checksum, may be {@literal null}.
+     * @param sha1 Supplied sha1 checksum, may be {@literal null}.
+     * @param sha256 Supplied sha256 checksum, may be {@literal null}.
+     * @param sha512 Supplied sha512 checksum, may be {@literal null}.
+     * @return A map of a checksum type to a digest; {@literal null} digests
      *  are not included.
      */
-    private static Map<Signature, String> create(
+    private static Map<Checksum, String> create(
         @Nullable final String md5, @Nullable final String sha1,
         @Nullable final String sha256, @Nullable final String sha512
     ) {
-        final Map<Signature, String> digests = new EnumMap<>(Signature.class);
+        final Map<Checksum, String> digests = new EnumMap<>(Checksum.class);
         if (md5 != null) {
-            digests.put(Signature.MD5, md5);
+            digests.put(Checksum.MD5, md5);
         }
         if (sha1 != null) {
-            digests.put(Signature.SHA1, sha1);
+            digests.put(Checksum.SHA1, sha1);
         }
         if (sha256 != null) {
-            digests.put(Signature.SHA256, sha256);
+            digests.put(Checksum.SHA256, sha256);
         }
         if (sha512 != null) {
-            digests.put(Signature.SHA512, sha512);
+            digests.put(Checksum.SHA512, sha512);
         }
         return digests;
     }
