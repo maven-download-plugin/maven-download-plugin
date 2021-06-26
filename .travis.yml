@@ -10,5 +10,5 @@ env:
 jdk:
   - openjdk8
 script:
-  - mvn clean install --batch-mode --errors
-  - mvn verify -Pits --batch-mode --errors
+  - mvn clean install --batch-mode --errors -Dinvoker.streamLogsOnFailures=true
+  - mvn verify -Pits --batch-mode --errors -Dinvoker.streamLogsOnFailures=true
