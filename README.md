@@ -32,7 +32,7 @@ Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/p
 
 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.6.3:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.6.6:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
 ```
 
 ### "WGet" goal
@@ -42,7 +42,7 @@ It provides caching and checksum verification.
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>download-maven-plugin</artifactId>
-	<version>1.6.3</version>
+	<version>1.6.6</version>
 	<executions>
 		<execution>
 			<id>install-jbpm</id>
@@ -76,7 +76,7 @@ mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.6.3](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.6.3/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
+See also generated documentation pages [for 1.6.6](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.6.6/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
