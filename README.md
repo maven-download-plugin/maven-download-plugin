@@ -61,6 +61,13 @@ It provides caching and checksum verification.
 </plugin>
 ```
 
+## Known issues and workarounds
+
+### IO Error: No such archiver
+
+Happens when the plugin is instructed to unarchive file but the file has unsupported extension
+**Solution**: Specify `outputFilename` parameter with proper file extension
+
 ## Help
 
 ### Maven help
