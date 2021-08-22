@@ -397,15 +397,11 @@ public class WGet extends AbstractMojo {
                         checksumMatch = false;
                     }
                 }
-                if (!checksumMatch) {
+                if (!checksumMatch || overwrite) {
                     outputFile.delete();
                     haveFile = false;
-                } else if (!overwrite) {
-                    getLog().info("File already exist, skipping");
                 } else {
-                    // If no checksum provided and owerwriting requested we
-                    // will treat the fact as if there is no file in the cache.
-                    haveFile = false;
+                    getLog().info("File already exist, skipping");
                 }
             }
 
