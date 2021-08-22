@@ -1,5 +1,7 @@
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin)
 
+[![Build Status](https://app.travis-ci.com/maven-download-plugin/maven-download-plugin.svg?branch=master)](https://app.travis-ci.com/maven-download-plugin/maven-download-plugin)
+
 # Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
 
@@ -93,7 +95,5 @@ The recommended way to contribute is to use [Gerrit](https://gerrit-review.googl
 Alternatively, this project support GitHub PR, but enforce some rules for decent tracking: 1 Change Request == 1 PR == 1 commit, if a change can be made by iterations, then use a specific PR for each iteration.
 
 ## Other links
-
-Project metrics on Ohloh: [![Ohloh](https://www.ohloh.net/p/download-maven-plugin/widgets/project_partner_badge.gif)](https://www.ohloh.net/p/download-maven-plugin)
 
 Former project page at Google Code: http://code.google.com/p/maven-download-plugin/
