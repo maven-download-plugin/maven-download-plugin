@@ -122,7 +122,13 @@ public class WGet extends AbstractMojo {
     private URI uri;
 
     /**
-     * Flag to overwrite the file by redownloading it
+     * Flag to overwrite the file by redownloading it.
+     * {@code overwrite=true} means that if the target file pre-exists
+     * at the expected target-location for the current plugin execution,
+     * then the pre-existing file will be overwritten and replaced anyway;
+     * whereas default {@code overwrite=false} will entirely skip all the
+     * execution if the target file pre-exists and matches specification
+     * (name, signatures...).
      */
     @Parameter(property = "download.overwrite")
     private boolean overwrite;
@@ -206,7 +212,11 @@ public class WGet extends AbstractMojo {
     private int readTimeOut;
 
     /**
-     * Download file without polling cache
+     * Download file without polling cache.
+     * Means that the download operation will not look in the global cache
+     * to resolve the file to download, and will directly proceed with
+     * the download and won't store this download in the cache.
+     * It's recommended for urls that have "volatile" content.
      */
     @Parameter(property = "download.cache.skip", defaultValue = "false")
     private boolean skipCache;
