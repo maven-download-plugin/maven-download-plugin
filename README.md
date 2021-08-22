@@ -2,10 +2,13 @@
 
 # Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
+The plugin caches downloaded files in maven cache directory, which saves network trafic and speedup build.
 
-__WARNING about artifactId__: Until version 1.1, the plugin artifactId used to be _maven-download-plugin_, however Maven conventions makes that this name is not allowed for a plugin which is not part of the Apache Maven project. So starting from version 1.2-SNAPSHOT, the plugin artifactId is _download-maven-plugin_. The following documentation will get updated when releasing download-maven-plugin:1.2.
+## Project Status
 
-## Enable 
+Functional but not under active development. We accept pull requests, and generally get them merged within a week or 2 depending on the complexity.
+
+## Enable
 
 This Maven plugin should be available on Maven Central. But in case you can't find it on Central for some reason, here is the repository to add to your pom:
 
@@ -69,6 +72,10 @@ Happens when the plugin is instructed to unarchive file but the file has unsuppo
 
 **Solution**: Specify `outputFilename` parameter with proper file extension
 
+### WARNING about artifactId
+
+Until version 1.1, the plugin artifactId used to be _maven-download-plugin_, however Maven conventions makes that this name is not allowed for a plugin which is not part of the Apache Maven project. So starting from version 1.2-SNAPSHOT, the plugin artifactId is _download-maven-plugin_. The following documentation will get updated when releasing download-maven-plugin:1.2.
+
 ## Help
 
 ### Maven help
@@ -96,9 +103,8 @@ Are maintained at GitHub (links above).
 
 ### Contribute
 
-The recommended way to contribute is to use [Gerrit](https://gerrit-review.googlesource.com/Documentation/user-upload.html) and GerritHub: https://review.gerrithub.io/#/admin/projects/maven-download-plugin/maven-download-plugin . Gerrit is pretty convenient as it manages topic branches automatically, allows a better tracking of various versions of a patch, enforce 1 commit per change and prevents from merge commits without payload.
-
-Alternatively, this project support GitHub PR, but enforce some rules for decent tracking: 1 Change Request == 1 PR == 1 commit, if a change can be made by iterations, then use a specific PR for each iteration.
+This project support GitHub PR, but enforce some rules for decent tracking: 1 Change Request == 1 PR == 1 commit, if a change can be made by iterations, then use a specific PR for each iteration.
+Ideally, every bugfix should be supplied with a unit or integration test. 
 
 ## Other links
 
