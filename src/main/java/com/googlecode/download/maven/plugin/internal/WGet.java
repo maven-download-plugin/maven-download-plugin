@@ -354,7 +354,7 @@ public class WGet extends AbstractMojo {
         // PREPARE
         if (this.outputFileName == null) {
             try {
-                this.outputFileName = new File(this.uri.toURL().getFile()).getName();
+                this.outputFileName = new File(this.uri.toURL().getPath()).getName();
             } catch (Exception ex) {
                 throw new MojoExecutionException("Invalid URL", ex);
             }
