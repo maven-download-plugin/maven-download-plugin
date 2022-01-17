@@ -75,6 +75,7 @@ import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
+import org.codehaus.plexus.components.io.filemappers.FileMapper;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
@@ -319,6 +320,14 @@ public class WGet extends AbstractMojo {
     private long maxLockWaitTime;
 
     /**
+     * {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no rewriting shall happen.
+     *
+     * @since 1.6.8
+     */
+    @Parameter(property = "download.fileMappers")
+    private FileMapper[] fileMappers;
+
+    /**
      * Method call when the mojo is executed for the first time.
      *
      * @throws MojoExecutionException if an error is occuring in this mojo.
@@ -477,6 +486,7 @@ public class WGet extends AbstractMojo {
         } else {
             unarchiver.setDestDirectory(this.outputDirectory);
         }
+        unarchiver.setFileMappers(this.fileMappers);
         unarchiver.extract();
         outputFile.delete();
     }
@@ -624,5 +634,27 @@ public class WGet extends AbstractMojo {
             }
         }
         return result;
+    }
+
+    /**
+     * @return {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no rewriting shall
+     *         happen.
+     *
+     * @since 1.6.8
+     */
+    public FileMapper[] getFileMappers()
+    {
+        return this.fileMappers;
+    }
+
+    /**
+     * @param fileMappers {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no
+     *                   rewriting shall happen.
+     *
+     * @since 1.6.8
+     */
+    public void setFileMappers( FileMapper[] fileMappers )
+    {
+        this.fileMappers = fileMappers;
     }
 }
