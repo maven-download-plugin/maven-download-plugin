@@ -636,25 +636,4 @@ public class WGet extends AbstractMojo {
         return result;
     }
 
-    /**
-     * @return {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no rewriting shall
-     *         happen.
-     *
-     * @since 1.6.8
-     */
-    public FileMapper[] getFileMappers()
-    {
-        return this.fileMappers;
-    }
-
-    /**
-     * @param fileMappers {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no
-     *                   rewriting shall happen.
-     *
-     * @since 1.6.8
-     */
-    public void setFileMappers( FileMapper[] fileMappers )
-    {
-        this.fileMappers = fileMappers;
-    }
 }
