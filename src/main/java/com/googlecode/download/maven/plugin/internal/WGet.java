@@ -71,6 +71,7 @@ import org.codehaus.plexus.archiver.manager.ArchiverManager;
 import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.archiver.snappy.SnappyUnArchiver;
 import org.codehaus.plexus.archiver.xz.XZUnArchiver;
+import org.codehaus.plexus.components.io.filemappers.FileMapper;
 import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
@@ -326,6 +327,7 @@ public class WGet extends AbstractMojo {
      */
     @Parameter(property = "download.fileMappers")
     private FileMapper[] fileMappers;
+    private DownloadCache cache;
 
     /**
      * Method call when the mojo is executed for the first time.
@@ -368,15 +370,19 @@ public class WGet extends AbstractMojo {
                 throw new MojoExecutionException("Invalid URL", ex);
             }
         }
-        if (this.cacheDirectory == null) {
-            this.cacheDirectory = new File(this.session.getLocalRepository()
-                .getBasedir(), ".cache/download-maven-plugin");
+        if (!this.skipCache) {
+            if (this.cacheDirectory == null) {
+                this.cacheDirectory = new File(this.session.getLocalRepository()
+                        .getBasedir(), ".cache/download-maven-plugin");
+            }
+            getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
+            this.cache = DOWNLOAD_CACHES.computeIfAbsent(
+                    cacheDirectory.getAbsolutePath(),
+                    directory -> new DownloadCache(new File(directory))
+            );
+        } else {
+            getLog().debug("Cache is skipped");
         }
-        getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
-        final DownloadCache cache = DOWNLOAD_CACHES.computeIfAbsent(
-            cacheDirectory.getAbsolutePath(),
-            directory -> new DownloadCache(new File(directory))
-        );
         this.outputDirectory.mkdirs();
         final File outputFile = new File(this.outputDirectory, this.outputFileName);
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
@@ -425,8 +431,8 @@ public class WGet extends AbstractMojo {
             }
 
             if (!haveFile) {
-                File cached = cache.getArtifact(this.uri, checksums);
-                if (!this.skipCache && cached != null && cached.exists()) {
+                File cached = skipCache ? null : cache.getArtifact(this.uri, checksums);
+                if (cached != null && cached.exists()) {
                     getLog().debug("Got from cache: " + cached.getAbsolutePath());
                     Files.copy(cached.toPath(), outputFile.toPath());
                 } else {
@@ -461,7 +467,9 @@ public class WGet extends AbstractMojo {
                     }
                 }
             }
-            cache.install(this.uri, outputFile, checksums);
+            if (!skipCache) {
+                cache.install(this.uri, outputFile, checksums);
+            }
             if (this.unpack) {
                 unpack(outputFile);
                 buildContext.refresh(outputDirectory);
