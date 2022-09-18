@@ -56,7 +56,7 @@ public class WGetTest {
         outputFile = File.createTempFile("wget-test-", "");
     }
 
-    protected <T, M extends Mojo> void setVariableValueToObject(M mojo, String variable, T value) {
+    private <T, M extends Mojo> void setVariableValueToObject(M mojo, String variable, T value) {
         try {
             org.apache.maven.plugin.testing.ArtifactStubFactory.setVariableValueToObject(mojo, variable, value);
         } catch (IllegalAccessException e) {
