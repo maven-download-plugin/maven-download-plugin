@@ -23,6 +23,7 @@ import org.sonatype.plexus.build.incremental.BuildContext;
 import java.io.*;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Map;
@@ -190,7 +191,10 @@ public class WGetTest {
 
     /**
      * Verifies that a concurrent invocation of two mojos with, the resulting cache index will keep note of both files.
-     * Here, one of the
+     * One of the processes starts first, then gets held up while another process downloads another file. Once
+     * the second process finishes, the first process saves its file as well. The test verifies that both files
+     * are present in the cache index. Finally, the test also verifies that the content of the cached files matches
+     * the "downloaded" content.
      *
      * @throws Exception should any exception be thrown
      */
@@ -243,6 +247,12 @@ public class WGetTest {
                     new File(cacheDirectory, "index.ser").toPath())).readObject();
             assertThat(index.entrySet(), hasSize(2));
             assertThat(index.keySet(), containsInAnyOrder(outputFile.toURI(), secondOutputFile.toURI()));
+
+            Files.readAllLines(Paths.get(cacheDirectory.getAbsolutePath(), index.get(outputFile.toURI())))
+                    .forEach(str -> assertThat(str, is("foo")));
+
+            Files.readAllLines(Paths.get(cacheDirectory.getAbsolutePath(), index.get(secondOutputFile.toURI())))
+                    .forEach(str -> assertThat(str, is("bar")));
         } finally {
             secondOutputFile.delete();
         }
