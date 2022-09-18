@@ -128,7 +128,7 @@ public class WGetTest {
     }
 
     /**
-     * Verifies the exception message should the cache directory not exist.
+     * Verifies the exception message should the cache directory not a directory.
      *
      * @throws Exception should any exception be thrown
      */
