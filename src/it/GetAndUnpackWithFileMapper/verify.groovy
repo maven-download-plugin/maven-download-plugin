@@ -1,5 +1,5 @@
-File f = new File(basedir, "target/ant-contrib-1.0b2-bin.zip")
+def f = new File(basedir, "target/apache-maven-3.8.6.zip")
 assert !f.exists()
-f = new File(basedir, "target/ant-contrib/RENAMED.txt")
+f = new File(basedir, "target/apache-maven-3.8.6/RENAMED.txt")
 assert f.exists()
 assert f.length() > 0

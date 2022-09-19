@@ -14,6 +14,7 @@
 	</parent>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<httpclient.version>4.5.13</httpclient.version>
 	</properties>
 	<!-- Build plugins and extensions -->
 	<build>
@@ -97,6 +98,7 @@
 									<invokerPropertiesFile>invoke.properties</invokerPropertiesFile>
 									<preBuildHookScript>prepare.groovy</preBuildHookScript>
 									<postBuildHookScript>verify</postBuildHookScript>
+									<parallelThreads>1C</parallelThreads>
 									<debug>true</debug>
 									<properties>
 										<testing.versionUnderTest>${project.version}</testing.versionUnderTest>
@@ -148,7 +150,12 @@
 		<dependency>
 			<groupId>org.apache.httpcomponents</groupId>
 			<artifactId>httpclient</artifactId>
-			<version>4.5.13</version>
+			<version>${httpclient.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.httpcomponents</groupId>
+			<artifactId>httpclient-cache</artifactId>
+			<version>${httpclient.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.codehaus.plexus</groupId>
@@ -208,8 +215,8 @@
 			<version>4.7.0</version>
 			<scope>test</scope>
 		</dependency>
-
 	</dependencies>
+
 	<!-- Reporting -->
 	<reporting>
 		<plugins>
