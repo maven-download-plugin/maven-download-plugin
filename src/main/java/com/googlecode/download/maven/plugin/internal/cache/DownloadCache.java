@@ -16,11 +16,15 @@
 package com.googlecode.download.maven.plugin.internal.cache;
 
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.logging.Log;
+
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * A class representing a download cache
@@ -32,9 +36,8 @@ public final class DownloadCache {
 	private final File basedir;
     private final FileIndex index;
 
-	public DownloadCache(File cacheDirectory) {
-        DownloadCache.createIfNeeded(cacheDirectory);
-        this.index = new FileBackedIndex(cacheDirectory);
+	public DownloadCache(File cacheDirectory, Log log) {
+        this.index = new FileBackedIndex(cacheDirectory, log);
         this.basedir = cacheDirectory;
     }
 
@@ -61,8 +64,8 @@ public final class DownloadCache {
 	 */
     public File getArtifact(URI uri, final Checksums checksums) {
 		final String res;
+		this.index.getLock().lock();
 		try {
-			this.index.getLock().lock();
 			res = this.getEntry(uri, checksums);
 		} finally {
 			this.index.getLock().unlock();
@@ -73,9 +76,14 @@ public final class DownloadCache {
 		return null;
 	}
 
-    public void install(URI uri, File outputFile, final Checksums checksums) throws Exception {
+    public void install(URI uri, File outputFile, final Checksums checksums) throws MojoFailureException, IOException {
+		if (!basedir.exists()) {
+			if (!basedir.mkdirs()) {
+				throw new MojoFailureException("Could not create cache directory: " + basedir.getAbsolutePath());
+			}
+		}
+		this.index.getLock().lock();
 		try {
-			this.index.getLock().lock();
 			final String entry = this.getEntry(uri, checksums);
 			if (entry != null) {
 				return; // entry already here
@@ -94,17 +102,4 @@ public final class DownloadCache {
 			this.index.getLock().unlock();
 		}
 	}
-
-    private static void createIfNeeded(final File basedir) {
-        if (!basedir.exists()) {
-            basedir.mkdirs();
-        } else if (!basedir.isDirectory()) {
-            throw new IllegalArgumentException(
-                String.format(
-					"Cannot use %s as cache directory: a file already exist there",
-                    basedir
-                )
-            );
-        }
-    }
 }

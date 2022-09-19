@@ -374,16 +374,28 @@ public class WGet extends AbstractMojo {
             if (this.cacheDirectory == null) {
                 this.cacheDirectory = new File(this.session.getLocalRepository()
                         .getBasedir(), ".cache/download-maven-plugin");
+            } else if (this.cacheDirectory.exists() && !this.cacheDirectory.isDirectory()) {
+                throw new MojoFailureException(String.format("cacheDirectory is not a directory: "
+                        + this.cacheDirectory.getAbsolutePath()));
             }
             getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
             this.cache = DOWNLOAD_CACHES.computeIfAbsent(
                     cacheDirectory.getAbsolutePath(),
-                    directory -> new DownloadCache(new File(directory))
-            );
+                    directory -> new DownloadCache(new File(directory), getLog()));
         } else {
             getLog().debug("Cache is skipped");
         }
-        this.outputDirectory.mkdirs();
+        if (!outputDirectory.exists())
+        {
+            if (!outputDirectory.mkdirs())
+            {
+                throw new MojoFailureException("Could not create output directory " + outputDirectory.getAbsolutePath());
+            }
+        }
+        else if (!outputDirectory.isDirectory()) {
+            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
+        }
+
         final File outputFile = new File(this.outputDirectory, this.outputFileName);
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
