@@ -212,7 +212,6 @@ public class HttpFileRequester {
         final CachingHttpClientBuilder httpClientBuilder = createHttpClientBuilder();
         try (final CloseableHttpClient httpClient = httpClientBuilder.build()) {
             final HttpCacheContext clientContext = HttpCacheContext.create();
-//            clientContext.setRequestConfig(requestConfig);
             if (this.credentialsProvider != null) {
                 clientContext.setCredentialsProvider(credentialsProvider);
             }
