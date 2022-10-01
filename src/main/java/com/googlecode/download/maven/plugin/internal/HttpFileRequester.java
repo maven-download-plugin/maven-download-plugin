@@ -21,48 +21,35 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ProxySelector;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.NotDirectoryException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 import com.googlecode.download.maven.plugin.internal.cache.FileBackedIndex;
 import com.googlecode.download.maven.plugin.internal.cache.FileIndexResourceFactory;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.cache.CacheResponseStatus;
 import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.client.utils.URIUtils;
-import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.cache.CacheConfig;
 import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
 import org.apache.http.impl.client.cache.CachingHttpClients;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
-import org.apache.http.ssl.SSLContexts;
-import org.apache.http.util.Args;
 import org.apache.maven.plugin.logging.Log;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static org.apache.http.client.cache.CacheResponseStatus.CACHE_HIT;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 
 /**
@@ -218,39 +205,53 @@ public class HttpFileRequester {
 
             final HttpGet httpGet = new HttpGet(uri);
             headers.forEach(httpGet::setHeader);
-            httpClient.execute(httpGet, response -> {
-                    final HttpEntity entity = response.getEntity();
-                    if (entity != null) {
-                        switch (clientContext.getCacheResponseStatus()) {
-                            case CACHE_HIT:
-                            case CACHE_MODULE_RESPONSE:
-                            case VALIDATED:
-                                log.debug("Copying file from cache");
-                                Files.copy(entity.getContent(), outputFile.toPath(), REPLACE_EXISTING);
-                                break;
-                            default:
-                                progressReport.initiate(uri, entity.getContentLength());
-                                byte[] tmp = new byte[8 * 11024];
-                                try (InputStream in = entity.getContent(); OutputStream out =
-                                        Files.newOutputStream(outputFile.toPath())) {
-                                    int bytesRead;
-                                    while ((bytesRead = in.read(tmp)) != -1) {
-                                        out.write(tmp, 0, bytesRead);
-                                        progressReport.update(bytesRead);
-                                    }
-                                    out.flush();
-                                    progressReport.completed();
-
-                                } catch (IOException ex) {
-                                    progressReport.error(ex);
-                                    throw ex;
-                                }
-                                break;
-                        }
-                    }
-                    return null;
-                }, clientContext);
+            httpClient.execute(httpGet, response ->
+                    handleResponse( uri, outputFile, clientContext, response ), clientContext);
         }
+    }
+
+    /**
+     * Handles response from the server
+     * @param uri request uri
+     * @param outputFile output file for the download request
+     * @param clientContext {@linkplain HttpCacheContext} object
+     * @param response response from the server
+     * @return original response object
+     * @throws IOException thrown if I/O operations don't succeed
+     */
+    private Object handleResponse( URI uri, File outputFile, HttpCacheContext clientContext, HttpResponse response )
+            throws IOException
+    {
+        final HttpEntity entity = response.getEntity();
+        if (entity != null) {
+            switch ( clientContext.getCacheResponseStatus()) {
+                case CACHE_HIT:
+                case CACHE_MODULE_RESPONSE:
+                case VALIDATED:
+                    log.debug("Copying file from cache");
+                    Files.copy(entity.getContent(), outputFile.toPath(), REPLACE_EXISTING);
+                    break;
+                default:
+                    progressReport.initiate( uri, entity.getContentLength());
+                    byte[] tmp = new byte[8 * 11024];
+                    try (InputStream in = entity.getContent(); OutputStream out =
+                            Files.newOutputStream( outputFile.toPath())) {
+                        int bytesRead;
+                        while ((bytesRead = in.read(tmp)) != -1) {
+                            out.write(tmp, 0, bytesRead);
+                            progressReport.update(bytesRead);
+                        }
+                        out.flush();
+                        progressReport.completed();
+
+                    } catch (IOException ex) {
+                        progressReport.error(ex);
+                        throw ex;
+                    }
+                    break;
+            }
+        }
+        return entity;
     }
 
     private CachingHttpClientBuilder createHttpClientBuilder() throws NotDirectoryException {
