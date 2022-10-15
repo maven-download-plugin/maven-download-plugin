@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import org.apache.commons.codec.binary.Hex;
@@ -38,7 +39,7 @@ public class ChecksumUtils {
 
     public static String computeChecksumAsString(File file,
         MessageDigest digest) throws IOException {
-        InputStream fis = new FileInputStream(file);
+        InputStream fis = Files.newInputStream(file.toPath());
         byte[] buffer = new byte[1024];
         int numRead;
         do {

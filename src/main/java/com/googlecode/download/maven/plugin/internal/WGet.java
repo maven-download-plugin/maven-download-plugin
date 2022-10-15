@@ -14,42 +14,13 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
-import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
-import java.io.File;
-import java.net.ProxySelector;
-import java.net.URI;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 import org.apache.http.Header;
-import org.apache.http.HttpHost;
 import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.NTCredentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
 import org.apache.http.message.BasicHeader;
-import org.apache.http.ssl.SSLContexts;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
@@ -76,7 +47,20 @@ import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
-import org.codehaus.plexus.components.io.filemappers.FileMapper;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+
+import static org.codehaus.plexus.util.StringUtils.isNotBlank;
 
 /**
  * Will download a file from a web site using the standard HTTP protocol.
@@ -86,36 +70,11 @@ import org.codehaus.plexus.components.io.filemappers.FileMapper;
  */
 @Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
 public class WGet extends AbstractMojo {
-
-    private static final PoolingHttpClientConnectionManager CONN_POOL;
-    /**
-     * A map of file caches by their location paths.
-     * Ensures one cache instance per path and enables safe execution in parallel
-     * builds against the same cache.
-     */
-    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
     /**
      * A map of file locks by files to be downloaded.
      * Ensures exclusive access to a target file.
      */
     private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
-
-    static {
-        CONN_POOL = new PoolingHttpClientConnectionManager(
-                RegistryBuilder.<ConnectionSocketFactory>create()
-                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
-                        .register("https", new SSLConnectionSocketFactory(
-                                SSLContexts.createSystemDefault(),
-                                SSLProtocols.supported(),
-                                null,
-                                SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
-                        .build(),
-                null,
-                null,
-                null,
-                1,
-                TimeUnit.MINUTES);
-    }
 
     /**
      * Represent the URL to fetch information from.
@@ -210,7 +169,7 @@ public class WGet extends AbstractMojo {
     /**
      * Read timeout for a download in milliseconds
      */
-    @Parameter(defaultValue = "0")
+    @Parameter(defaultValue = "3000")
     private int readTimeOut;
 
     /**
@@ -327,7 +286,6 @@ public class WGet extends AbstractMojo {
      */
     @Parameter(property = "download.fileMappers")
     private FileMapper[] fileMappers;
-    private DownloadCache cache;
 
     /**
      * Method call when the mojo is executed for the first time.
@@ -347,7 +305,7 @@ public class WGet extends AbstractMojo {
             return;
         }
 
-        if (StringUtils.isNotBlank(serverId) && (StringUtils.isNotBlank(username) || StringUtils.isNotBlank(password))) {
+        if (isNotBlank(serverId) && (isNotBlank(username) || isNotBlank(password))) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
 
@@ -379,23 +337,11 @@ public class WGet extends AbstractMojo {
                         + this.cacheDirectory.getAbsolutePath()));
             }
             getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
-            this.cache = DOWNLOAD_CACHES.computeIfAbsent(
-                    cacheDirectory.getAbsolutePath(),
-                    directory -> new DownloadCache(new File(directory), getLog()));
+
         } else {
             getLog().debug("Cache is skipped");
         }
-        if (!outputDirectory.exists())
-        {
-            if (!outputDirectory.mkdirs())
-            {
-                throw new MojoFailureException("Could not create output directory " + outputDirectory.getAbsolutePath());
-            }
-        }
-        else if (!outputDirectory.isDirectory()) {
-            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
-        }
-
+        this.outputDirectory.mkdirs();
         final File outputFile = new File(this.outputDirectory, this.outputFileName);
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
@@ -429,8 +375,9 @@ public class WGet extends AbstractMojo {
                     try {
                         checksums.validate(outputFile);
                     } catch (final MojoFailureException e) {
-                        getLog().warn("The local version of file " + outputFile.getName() + " doesn't match the expected checksum. " +
-                            "You should consider checking the specified checksum is correctly set.");
+                        getLog().warn("The local version of file " + outputFile.getName()
+                                + " doesn't match the expected checksum. "
+                                + "You should consider checking the specified checksum is correctly set.");
                         checksumMatch = false;
                     }
                 }
@@ -443,44 +390,35 @@ public class WGet extends AbstractMojo {
             }
 
             if (!haveFile) {
-                File cached = skipCache ? null : cache.getArtifact(this.uri, checksums);
-                if (cached != null && cached.exists()) {
-                    getLog().debug("Got from cache: " + cached.getAbsolutePath());
-                    Files.copy(cached.toPath(), outputFile.toPath());
-                } else {
-                    if (this.settings.isOffline()) {
-                        if (this.failOnError) {
-                            throw new MojoExecutionException("No file in cache and maven is in offline mode");
-                        } else {
-                            getLog().warn("Ignoring download failure.");
-                        }
+                if (this.settings.isOffline()) {
+                    if (this.failOnError) {
+                        throw new MojoExecutionException("No file in cache and maven is in offline mode");
+                    } else {
+                        getLog().warn("Ignoring download failure.");
                     }
-                    boolean done = false;
-                    while (!done && this.retries > 0) {
-                        try {
-                            this.doGet(outputFile);
-                            checksums.validate(outputFile);
-                            done = true;
-                        } catch (Exception ex) {
-                            getLog().warn("Could not get content", ex);
-                            this.retries--;
-                            if (this.retries > 0) {
-                                getLog().warn("Retrying (" + this.retries + " more)");
-                            }
-                        }
-                    }
-                    if (!done) {
-                        if (this.failOnError) {
-                            throw new MojoFailureException("Could not get content");
-                        } else {
-                            getLog().warn("Ignoring download failure.");
-                            return;
+                }
+                boolean done = false;
+                while (!done && this.retries > 0) {
+                    try {
+                        this.doGet(outputFile);
+                        checksums.validate(outputFile);
+                        done = true;
+                    } catch (IOException ex) {
+                        getLog().warn("Could not get content", ex);
+                        this.retries--;
+                        if (this.retries > 0) {
+                            getLog().warn("Retrying (" + this.retries + " more)");
                         }
                     }
                 }
-            }
-            if (!skipCache) {
-                cache.install(this.uri, outputFile, checksums);
+                if (!done) {
+                    if (this.failOnError) {
+                        throw new MojoFailureException("Could not get content");
+                    } else {
+                        getLog().warn("Ignoring download failure.");
+                        return;
+                    }
+                }
             }
             if (this.unpack) {
                 unpack(outputFile);
@@ -488,8 +426,12 @@ public class WGet extends AbstractMojo {
             } else {
             	buildContext.refresh(outputFile);
             }
-        } catch (final Exception ex) {
-            throw new MojoExecutionException("IO Error", ex);
+        } catch (IOException ex) {
+            throw new MojoExecutionException("IO Error: ", ex);
+        } catch (NoSuchArchiverException e) {
+            throw new MojoExecutionException("No such archiver: " + e.getMessage());
+        } catch (Exception e) {
+            throw new MojoExecutionException("General error: ", e);
         } finally {
             if (lockAcquired) {
                 fileLock.unlock();
@@ -519,27 +461,9 @@ public class WGet extends AbstractMojo {
     }
 
 
-    private void doGet(final File outputFile) throws Exception {
-        final RequestConfig requestConfig;
-        if (readTimeOut > 0) {
-            getLog().info(
-                String.format(
-                    "Read Timeout is set to %d milliseconds (apprx %d minutes)",
-                    readTimeOut,
-                    Math.round(readTimeOut * 1.66667e-5)
-                )
-            );
-            requestConfig = RequestConfig.custom()
-                    .setConnectTimeout(readTimeOut)
-                    .setSocketTimeout(readTimeOut)
-                    .setRedirectsEnabled(followRedirects)
-                    .build();
-        } else {
-            requestConfig = RequestConfig.DEFAULT;
-        }
-
+    private void doGet(final File outputFile) throws MojoExecutionException, IOException {
         CredentialsProvider credentialsProvider = null;
-        if (StringUtils.isNotBlank(username)) {
+        if (isNotBlank(username)) {
             getLog().debug("providing custom authentication");
             getLog().debug("username: " + username + " and password: ***");
 
@@ -548,7 +472,7 @@ public class WGet extends AbstractMojo {
                     new AuthScope(this.uri.getHost(), this.uri.getPort()),
                     new UsernamePasswordCredentials(username, password));
 
-        } else if (StringUtils.isNotBlank(serverId)) {
+        } else if (isNotBlank(serverId)) {
             getLog().debug("providing custom authentication for " + serverId);
             Server server = settings.getServer(serverId);
             if (server == null) {
@@ -560,51 +484,35 @@ public class WGet extends AbstractMojo {
             credentialsProvider.setCredentials(
                     new AuthScope(this.uri.getHost(), this.uri.getPort()),
                     new UsernamePasswordCredentials(server.getUsername(), decrypt(server.getPassword(), serverId)));
-
         }
 
-        final HttpRoutePlanner routePlanner;
         final ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
+        final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
         if (this.useHttpProxy(proxyInfo)) {
-            routePlanner = new DefaultProxyRoutePlanner(new HttpHost(proxyInfo.getHost(), proxyInfo.getPort()));
-            if (proxyInfo.getUserName() != null) {
-                final Credentials creds;
-                if (proxyInfo.getNtlmHost() != null || proxyInfo.getNtlmDomain() != null) {
-                    creds = new NTCredentials(proxyInfo.getUserName(),
-                            proxyInfo.getPassword(),
-                            proxyInfo.getNtlmHost(),
-                            proxyInfo.getNtlmDomain());
-                } else {
-                    creds = new UsernamePasswordCredentials(proxyInfo.getUserName(),
-                            proxyInfo.getPassword());
-                }
-                AuthScope authScope = new AuthScope(proxyInfo.getHost(), proxyInfo.getPort());
-                if (credentialsProvider == null) {
-                    credentialsProvider = new BasicCredentialsProvider();
-                }
-                credentialsProvider.setCredentials(authScope, creds);
-            }
-        } else {
-            routePlanner = new SystemDefaultRoutePlanner(ProxySelector.getDefault());
+            fileRequesterBuilder
+                    .withProxyHost(proxyInfo.getHost())
+                    .withProxyPort(proxyInfo.getPort())
+                    .withProxyUserName(proxyInfo.getUserName())
+                    .withProxyPassword(proxyInfo.getPassword())
+                    .withNtlmDomain(proxyInfo.getNtlmDomain())
+                    .withNtlmHost(proxyInfo.getNtlmHost());
         }
 
-        try (final CloseableHttpClient httpClient = HttpClientBuilder.create()
-                .setConnectionManager(CONN_POOL)
-                .setConnectionManagerShared(true)
-                .setRoutePlanner(routePlanner)
-                .build()) {
-            final HttpFileRequester fileRequester = new HttpFileRequester(
-                httpClient,
-                this.session.getSettings().isInteractiveMode() ?
-                    new LoggingProgressReport(getLog()) : new SilentProgressReport(getLog()));
-
-            final HttpClientContext clientContext = HttpClientContext.create();
-            clientContext.setRequestConfig(requestConfig);
-            if (credentialsProvider != null) {
-                clientContext.setCredentialsProvider(credentialsProvider);
-            }
-            fileRequester.download(this.uri, outputFile, clientContext, getAdditionalHeaders());
+        if (!skipCache) {
+            fileRequesterBuilder.withCacheDir(this.cacheDirectory);
         }
+
+        final HttpFileRequester fileRequester = fileRequesterBuilder
+                .withProgressReport(this.session.getSettings().isInteractiveMode()
+                        ? new LoggingProgressReport(this.getLog())
+                        : new SilentProgressReport(this.getLog()))
+                .withConnectTimeout(this.readTimeOut)
+                .withSocketTimeout(this.readTimeOut)
+                .withCredentialsProvider(credentialsProvider)
+                .withRedirectsEnabled(this.followRedirects)
+                .withLog(this.getLog())
+                .build();
+        fileRequester.download(this.uri, outputFile, getAdditionalHeaders());
     }
 
     private List<Header> getAdditionalHeaders() {
