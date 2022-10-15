@@ -28,10 +28,6 @@ public class FileIndexResource implements Resource {
         return cacheDir.resolve(path);
     }
 
-    public Path getCacheDir() {
-        return cacheDir;
-    }
-
     @Override
     public InputStream getInputStream() throws IOException {
         return Files.newInputStream(getFullPath());

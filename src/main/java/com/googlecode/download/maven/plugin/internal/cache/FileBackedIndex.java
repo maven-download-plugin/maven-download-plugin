@@ -30,16 +30,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.googlecode.download.maven.plugin.internal.cache.FileBackedIndex.HttpCacheEntryAdapter.asHttpCacheEntry;
-import static com.googlecode.download.maven.plugin.internal.cache.FileBackedIndex.HttpCacheEntryAdapter.asPath;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static org.apache.http.HttpStatus.SC_OK;
 import static org.apache.http.HttpVersion.HTTP_1_1;
 
 /**
- * Binary file backed index.
- * The implementation is <b>NOT</b> thread safe and should be synchronized
- * by the lock.
+ * Persistent cache implementation of the {@link HttpCacheStorage} interface,
+ * to be used with the Apache HttpClient Cache, using a directory with
+ * the copy of the files and a serialized file map.
+ *
  * @author Paul Polishchuk
  * @since 1.3.1
  */
@@ -48,32 +47,29 @@ public class FileBackedIndex implements HttpCacheStorage {
 
     private static final Pattern URI_REGEX = Pattern.compile("^(?:\\{.*})?([^/]+//?.*)$");
     private static final String CACHE_FILENAME = "index.ser";
+    private final static StatusLine OK_STATUS_LINE = new BasicStatusLine(HTTP_1_1, SC_OK, "OK");
     private final Map<URI, String> index = new ConcurrentHashMap<>();
     private final Path cacheIndexFile;
     private final Log log;
     private final Path baseDir;
 
-    static class HttpCacheEntryAdapter {
-         private final static StatusLine OK_STATUS_LINE = new BasicStatusLine(HTTP_1_1, SC_OK, "OK");
-
-        static HttpCacheEntry asHttpCacheEntry(Path path, Path cacheDir) {
-            Date lastModifiedDate;
-            try {
-                lastModifiedDate = Date.from(Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toInstant());
-            } catch (IOException e) {
-                lastModifiedDate = Date.from(Instant.now());
-            }
-            return new HttpCacheEntry(lastModifiedDate, Date.from(Instant.now()), OK_STATUS_LINE,
-                    new Header[] { new BasicHeader(HttpHeaders.DATE, DateUtils.formatDate(lastModifiedDate)),
-                    new BasicHeader(HeaderConstants.CACHE_CONTROL_MAX_AGE, String.valueOf(Integer.MAX_VALUE)),
-                    new BasicHeader(HeaderConstants.EXPIRES,
-                            DateUtils.formatDate(Date.from(Instant.now().plus(365, DAYS))))},
-                    new FileIndexResource(path, cacheDir));
+    private static HttpCacheEntry asHttpCacheEntry( Path path, Path cacheDir) {
+        Date lastModifiedDate;
+        try {
+            lastModifiedDate = Date.from(Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toInstant());
+        } catch (IOException e) {
+            lastModifiedDate = Date.from(Instant.now());
         }
+        return new HttpCacheEntry(lastModifiedDate, Date.from(Instant.now()), OK_STATUS_LINE,
+                new Header[] { new BasicHeader(HttpHeaders.DATE, DateUtils.formatDate(lastModifiedDate)),
+                new BasicHeader(HeaderConstants.CACHE_CONTROL_MAX_AGE, String.valueOf(Integer.MAX_VALUE)),
+                new BasicHeader(HeaderConstants.EXPIRES,
+                        DateUtils.formatDate(Date.from(Instant.now().plus(365, DAYS))))},
+                new FileIndexResource(path, cacheDir));
+    }
 
-        static Path asPath(HttpCacheEntry entry) {
-            return ((FileIndexResource) entry.getResource()).getPath();
-        }
+    private static Path asPath( HttpCacheEntry entry) {
+        return ((FileIndexResource) entry.getResource()).getPath();
     }
 
     /**
@@ -100,7 +96,7 @@ public class FileBackedIndex implements HttpCacheStorage {
         return null;
     }
 
-    static URI normalize(final URI requestUri) throws URISyntaxException {
+    private static URI normalize(final URI requestUri) throws URISyntaxException {
         Args.notNull(requestUri, "URI");
         final URIBuilder builder = new URIBuilder(requestUri) ;
         if (builder.getHost() != null) {
