@@ -43,7 +43,7 @@ import static org.apache.http.HttpVersion.HTTP_1_1;
  * @since 1.3.1
  */
 @ThreadSafe
-public class FileBackedIndex implements HttpCacheStorage {
+public final class FileBackedIndex implements HttpCacheStorage {
 
     private static final Pattern URI_REGEX = Pattern.compile("^(?:\\{.*})?([^/]+//?.*)$");
     private static final String CACHE_FILENAME = "index.ser";
