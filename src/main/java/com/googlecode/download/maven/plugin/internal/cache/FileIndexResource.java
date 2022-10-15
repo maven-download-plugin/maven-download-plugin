@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Contract(threading = ThreadingBehavior.IMMUTABLE)
-public class FileIndexResource implements Resource {
+public final class FileIndexResource implements Resource {
     private final Path path;
 
     private final Path cacheDir;
