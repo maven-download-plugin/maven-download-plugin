@@ -1,12 +1,12 @@
 /**
  * Copyright [2009] Marc-Andre Houle
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,13 +23,13 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.ProjectBuilder;
-import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingResult;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
@@ -38,7 +38,6 @@ import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
-import org.eclipse.aether.resolution.DependencyResolutionException;
 
 import javax.inject.Inject;
 import java.io.File;
@@ -46,8 +45,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
 import static org.apache.maven.RepositoryUtils.toArtifact;
@@ -56,6 +59,7 @@ import static org.apache.maven.RepositoryUtils.toArtifact;
  * This mojo is designed to download a maven artifact from the repository and
  * download them in the specified path. The maven artifact downloaded can also
  * download it's dependency or not, based on a parameter.
+ *
  * @author Marc-Andre Houle
  */
 @Mojo(name = "artifact", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false)
@@ -92,6 +96,7 @@ public class ArtifactMojo extends AbstractMojo {
 
     /**
      * Location of the file.
+     *
      * @parameter expression="${outputDirectory}"
      * default-value="${project.build.directory}"
      */
@@ -101,6 +106,7 @@ public class ArtifactMojo extends AbstractMojo {
     /**
      * Will set the output file name to the specified name.  Valid only when the dependency depth
      * is set to 0.
+     *
      * @parameter expression="${outputFileName}"
      */
     @Parameter(property = "outputFileName")
@@ -151,74 +157,152 @@ public class ArtifactMojo extends AbstractMojo {
 
     /**
      * Will download the specified artifact in the specified directory.
+     *
+     * @throws MojoExecutionException thrown if there is a problem while processing the request
      * @see org.apache.maven.plugin.Mojo#execute()
-     * @throws MojoFailureException thrown if there is a problem while processing the request
      */
-    public void execute() throws MojoFailureException {
+    public void execute() throws MojoExecutionException {
         if (this.skip) {
             getLog().info("maven-download-plugin:artifact skipped");
             return;
         }
         if (this.dependencyDepth > 0 && this.outputFileName != null) {
-            throw new MojoFailureException("Cannot have a dependency depth higher than 0 and an outputFileName");
+            throw new MojoExecutionException("Cannot have a dependency depth higher than 0 and an outputFileName");
         }
-        final Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
+        final Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type,
+                classifier);
+        createOutputDirectoryIfNecessary();
         try {
-            createOutputDirectoryIfNecessary();
-            for (Artifact copy : downloadAndAddArtifact(artifact, dependencyDepth)) {
-                if (this.unpack) {
-                    this.unpackFileToDirectory(copy);
-                } else {
-                    this.copyFileToDirectory(copy);
-                }
-            }
-        } catch (ArtifactResolutionException | DependencyResolutionException | ProjectBuildingException |
-                 NoSuchArchiverException e) {
-            throw new MojoFailureException(e.getMessage());
+            downloadAndAddArtifact(artifact, dependencyDepth)
+                    .thenAccept(artifacts -> artifacts.forEach(copy -> {
+                        try {
+                            if (this.unpack) {
+                                this.unpackFileToDirectory(copy);
+                            } else {
+                                this.copyFileToDirectory(copy);
+                            }
+                        } catch (Exception e) {
+                            throw new RuntimeException();
+                        }
+                    })).toCompletableFuture()
+                    .get();
+        } catch (Exception e) {
+            throw new MojoExecutionException("Abnormal termination of the retrieval", e);
         }
     }
 
     /**
      * Download the artifact when possible and copy it to the target directory
      * and will fetch the dependency until the specified depth is reached.
+     *
      * @param artifact The artifact to download and set.
      * @param maxDepth The depth that will be downloaded for the dependencies.
-     * @throws ArtifactResolutionException thrown if there are problems during artifact resolution
-     * @throws DependencyResolutionException thrown if there are problems during transitive dependency resolution
+     * @return completion stage which, when complete, conains a set of resolved dependency artifacts
      */
-    private Set<Artifact> downloadAndAddArtifact(Artifact artifact, long maxDepth)
-            throws ArtifactResolutionException, DependencyResolutionException, ProjectBuildingException {
-        final Set<Artifact> artifacts = new HashSet<>();
-        artifacts.add(this.downloadArtifact(artifact));
-        if (maxDepth > 0) {
-            final Set<Artifact> dependencies = this.resolveDependencies(artifact);
-            getLog().debug("Number of dependencies: " + dependencies.size());
-            for (final Artifact dependency : dependencies) {
-                artifacts.addAll(downloadAndAddArtifact(dependency, maxDepth - 1));
-            }
-        }
-        return artifacts;
+    private CompletionStage<Set<Artifact>> downloadAndAddArtifact(Artifact artifact, long maxDepth) {
+        return this.downloadArtifact(artifact)
+                .thenApply(downloadedArtifact -> {
+                    Set<Artifact> result = new HashSet<>();
+                    result.add(downloadedArtifact);
+                    if (maxDepth > 0) {
+                        this.resolveDependencyArtifacts(downloadedArtifact)
+                                .forEach(completionStage -> {
+                                    try {
+                                        completionStage.thenCompose(artifact1 -> downloadAndAddArtifact(artifact1,
+                                                        maxDepth - 1))
+                                                    .toCompletableFuture()
+                                                    .thenAccept(result::addAll)
+                                                .get();
+                                    } catch (InterruptedException | ExecutionException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+                    }
+                    return result;
+                });
     }
 
     /**
-     * Will check if the artifact is in the local repository and download it if
-     * it is not.
-     * @param artifact The artifact to check if it is present in the local directory.
-     * @throws ArtifactResolutionException If an error happen while resolving the artifact.
+     * Will fetch a list of all the transitive dependencies for an artifact and
+     * return a list of completion stages, which will contain the downloaded
+     * artifacts when complete
+     *
+     * @param artifact The artifact for which transitive dependencies need to be
+     *                 downloaded.
+     * @return list of completion stages, which will contain the downloaded
+     * artifacts when complete
      */
-    private Artifact downloadArtifact(Artifact artifact) throws ArtifactResolutionException {
-        final ArtifactResult artifactResult = repositorySystem.resolveArtifact(session.getRepositorySession(),
-                new ArtifactRequest(toArtifact(artifact),
-                        session.getCurrentProject().getRemoteProjectRepositories(),
-                        getClass().getName()));
-        artifact.setFile(artifactResult.getArtifact().getFile());
-        artifact.setVersion(artifactResult.getArtifact().getVersion());
-        artifact.setResolved(artifactResult.isResolved());
-        return artifact;
+    private List<CompletionStage<Artifact>> resolveDependencyArtifacts(Artifact artifact) {
+        final Artifact pomArtifact = artifactFactory.createProjectArtifact(artifact.getGroupId(),
+                artifact.getArtifactId(),
+                artifact.getVersion());
+        if (getLog().isDebugEnabled()) {
+            getLog().debug(String.format("Resolving dependencies for artifact %s...", artifact.getId()));
+        }
+        try {
+            final ProjectBuildingResult result = projectBuilder.build(pomArtifact, false,
+                    new DefaultProjectBuildingRequest() {{
+                        setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
+                        setResolveDependencies(false);
+                        setLocalRepository(session.getLocalRepository());
+                        setRemoteRepositories(session.getCurrentProject().getRemoteArtifactRepositories());
+                        setUserProperties(session.getUserProperties());
+                        setSystemProperties(session.getSystemProperties());
+                        setActiveProfileIds(session.getRequest().getActiveProfiles());
+                        setInactiveProfileIds(session.getRequest().getInactiveProfiles());
+                        setRepositorySession(session.getRepositorySession());
+                        setBuildStartTime(session.getStartTime());
+                    }});
+            return result.getProject().getDependencies().stream()
+                    .map(this::createDependencyArtifact)
+                    .map(this::downloadArtifact)
+                    .collect(Collectors.toList());
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Artifact createDependencyArtifact(Dependency d) {
+        try {
+            return artifactFactory.createDependencyArtifact(d.getGroupId(),
+                    d.getArtifactId(),
+                    VersionRange.createFromVersionSpec(d.getVersion()),
+                    d.getType(),
+                    d.getClassifier(),
+                    d.getScope());
+        } catch (InvalidVersionSpecificationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Downloads the given dependency artifact in a separate thread.
+     *
+     * @param artifact artifact to be downloaded
+     * @return completion stage which contains the given artifact when complete
+     */
+    private CompletionStage<Artifact> downloadArtifact(Artifact artifact) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                final ArtifactResult artifactResult = repositorySystem.resolveArtifact(session.getRepositorySession(),
+                        new ArtifactRequest(toArtifact(artifact),
+                                session.getCurrentProject().getRemoteProjectRepositories(),
+                                getClass().getName()));
+                artifact.setFile(artifactResult.getArtifact().getFile());
+                artifact.setVersion(artifactResult.getArtifact().getVersion());
+                artifact.setResolved(artifactResult.isResolved());
+                return artifact;
+            }
+            catch (ArtifactResolutionException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     /**
      * Will copy the specified artifact into the output directory.
+     *
      * @param artifact The artifact already resolved to be copied.
      * @throws MojoFailureException If an error happened while copying the file.
      */
@@ -251,61 +335,5 @@ public class ArtifactMojo extends AbstractMojo {
         if (this.outputDirectory != null && !this.outputDirectory.exists()) {
             this.outputDirectory.mkdirs();
         }
-    }
-
-    private Artifact createDependencyArtifact(Dependency d) {
-        try {
-            return artifactFactory.createDependencyArtifact(d.getGroupId(),
-                    d.getArtifactId(),
-                    VersionRange.createFromVersionSpec(d.getVersion()),
-                    d.getType(),
-                    d.getClassifier(),
-                    d.getScope());
-        } catch (InvalidVersionSpecificationException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * Will fetch a list of all the transitive dependencies for an artifact and
-     * return a set of those artifacts.
-     * @param artifact The artifact for which transitive dependencies need to be
-     * downloaded.
-     * @return The set of dependencies that was dependant.
-     */
-    private Set<Artifact> resolveDependencies(Artifact artifact) throws ProjectBuildingException {
-        final Artifact pomArtifact = artifactFactory.createProjectArtifact(artifact.getGroupId(),
-                artifact.getArtifactId(),
-                artifact.getVersion());
-        if (getLog().isDebugEnabled()) {
-            getLog().debug(String.format("Resolving dependencies for artifact %s...", artifact.getId()));
-        }
-        final ProjectBuildingResult result = createProjectBuildingRequest(pomArtifact);
-        return result.getProject().getDependencies().stream()
-                .map(d -> createDependencyArtifact(d))
-                .peek(a -> {
-                    try {
-                        this.downloadArtifact(a);
-                    } catch (ArtifactResolutionException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .collect(Collectors.toSet());
-    }
-
-    private ProjectBuildingResult createProjectBuildingRequest(Artifact pomArtifact) throws ProjectBuildingException {
-        return projectBuilder.build(pomArtifact, false,
-                new DefaultProjectBuildingRequest() {{
-                    setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
-                    setResolveDependencies(false);
-                    setLocalRepository(session.getLocalRepository());
-                    setRemoteRepositories(session.getCurrentProject().getRemoteArtifactRepositories());
-                    setUserProperties(session.getUserProperties());
-                    setSystemProperties(session.getSystemProperties());
-                    setActiveProfileIds(session.getRequest().getActiveProfiles());
-                    setInactiveProfileIds(session.getRequest().getInactiveProfiles());
-                    setRepositorySession(session.getRepositorySession());
-                    setBuildStartTime(session.getStartTime());
-                }});
     }
 }
