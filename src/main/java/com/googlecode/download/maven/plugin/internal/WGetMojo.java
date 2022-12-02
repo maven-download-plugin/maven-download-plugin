@@ -17,19 +17,13 @@ package com.googlecode.download.maven.plugin.internal;
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
 import org.apache.http.Header;
 import org.apache.http.message.BasicHeader;
-import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
-import org.apache.maven.settings.Settings;
-import org.apache.maven.wagon.proxy.ProxyInfo;
-import org.apache.maven.wagon.proxy.ProxyUtils;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.bzip2.BZip2UnArchiver;
 import org.codehaus.plexus.archiver.gzip.GZipUnArchiver;
@@ -38,21 +32,29 @@ import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.archiver.snappy.SnappyUnArchiver;
 import org.codehaus.plexus.archiver.xz.XZUnArchiver;
 import org.codehaus.plexus.components.io.filemappers.FileMapper;
+import org.eclipse.aether.repository.Authentication;
+import org.eclipse.aether.repository.AuthenticationContext;
+import org.eclipse.aether.repository.Proxy;
+import org.eclipse.aether.repository.RemoteRepository;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
+import javax.inject.Inject;
+import javax.inject.Named;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import static org.apache.maven.shared.utils.StringUtils.isBlank;
 import static org.codehaus.plexus.util.StringUtils.isNotBlank;
 
 /**
@@ -62,7 +64,7 @@ import static org.codehaus.plexus.util.StringUtils.isNotBlank;
  * @author Mickael Istria (Red Hat Inc)
  */
 @Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
-public class WGet extends AbstractMojo {
+public class WGetMojo extends AbstractMojo {
     /**
      * A map of file locks by files to be downloaded.
      * Ensures exclusive access to a target file.
@@ -230,29 +232,23 @@ public class WGet extends AbstractMojo {
     @Parameter(property = "session", readonly = true)
     private MavenSession session;
 
-    @Parameter(property = "project", readonly = true)
-    private MavenProject project;
-
-    @Component
+    @Inject
     private ArchiverManager archiverManager;
 
     /**
      * For transfers
      */
-    @Component
-    private WagonManager wagonManager;
 
-    @Component
+    @Inject
     private BuildContext buildContext;
 
-    @Parameter(defaultValue = "${settings}", readonly = true, required = true)
-    private Settings settings;
 
     /**
-     * Maven Security Dispatcher
+     * (Injected) Maven Security Dispatcher
      */
-    @Component(hint = "mng-4384")
-    private SecDispatcher securityDispatcher;
+    @Inject
+    @Named( "mng-4384" )
+    private SecDispatcher secDispatcher;
 
     /**
      * Runs the plugin only if the current project is the execution root.
@@ -301,7 +297,7 @@ public class WGet extends AbstractMojo {
             return;
         }
 
-        if (runOnlyAtRoot && !project.isExecutionRoot()) {
+        if (this.runOnlyAtRoot && !this.session.getCurrentProject().isExecutionRoot()) {
             getLog().info("maven-download-plugin:wget skipped (not project root)");
             return;
         }
@@ -310,10 +306,10 @@ public class WGet extends AbstractMojo {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
 
-        if (this.settings == null) {
+        if (this.session.getSettings() == null) {
             getLog().warn("settings is null");
         }
-        if (this.settings.isOffline()) {
+        if (this.session.getSettings().isOffline()) {
             getLog().debug("maven-download-plugin:wget offline mode");
         }
         getLog().debug("Got settings");
@@ -382,7 +378,7 @@ public class WGet extends AbstractMojo {
                         checksumMatch = false;
                     }
                 }
-                if (!checksumMatch || overwrite) {
+                if (!checksumMatch || this.overwrite) {
                     outputFile.delete();
                     haveFile = false;
                 } else {
@@ -391,7 +387,7 @@ public class WGet extends AbstractMojo {
             }
 
             if (!haveFile) {
-                if (this.settings.isOffline()) {
+                if (this.session.getRepositorySession().isOffline()) {
                     if (this.failOnError) {
                         throw new MojoExecutionException("No file in cache and maven is in offline mode");
                     } else {
@@ -423,9 +419,9 @@ public class WGet extends AbstractMojo {
             }
             if (this.unpack) {
                 unpack(outputFile);
-                buildContext.refresh(outputDirectory);
+                this.buildContext.refresh(this.outputDirectory);
             } else {
-            	buildContext.refresh(outputFile);
+            	this.buildContext.refresh(outputFile);
             }
         } catch (IOException ex) {
             throw new MojoExecutionException("IO Error: ", ex);
@@ -445,7 +441,8 @@ public class WGet extends AbstractMojo {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
         unarchiver.setSourceFile(outputFile);
         if (isFileUnArchiver(unarchiver)) {
-            unarchiver.setDestFile(new File(this.outputDirectory, outputFileName.substring(0, outputFileName.lastIndexOf('.'))));
+            unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.substring(0,
+                    this.outputFileName.lastIndexOf('.'))));
         } else {
             unarchiver.setDestDirectory(this.outputDirectory);
         }
@@ -462,20 +459,26 @@ public class WGet extends AbstractMojo {
     }
 
 
-    private void doGet(final File outputFile) throws MojoExecutionException, IOException {
-        final ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
+    private void doGet(final File outputFile) throws IOException, MojoExecutionException {
         final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
-        if (this.useHttpProxy(proxyInfo)) {
-            fileRequesterBuilder
-                    .withProxyHost(proxyInfo.getHost())
-                    .withProxyPort(proxyInfo.getPort())
-                    .withProxyUserName(proxyInfo.getUserName())
-                    .withProxyPassword(proxyInfo.getPassword())
-                    .withNtlmDomain(proxyInfo.getNtlmDomain())
-                    .withNtlmHost(proxyInfo.getNtlmHost());
-        }
 
-        if (!skipCache) {
+        final RemoteRepository repository = new RemoteRepository.Builder(isBlank(this.serverId)
+            ? null
+            : this.serverId,
+                isBlank(this.serverId) ? this.uri.getScheme() : null,
+                isBlank(this.serverId) ? this.uri.getHost() : null)
+                .build();
+
+        // set proxy if present
+        Optional.ofNullable(this.session.getRepositorySession().getProxySelector())
+                .flatMap(selector -> Optional.ofNullable(selector.getProxy(repository)))
+                .ifPresent(proxy -> addProxy(fileRequesterBuilder, repository, proxy));
+
+        Optional.ofNullable(this.session.getRepositorySession().getAuthenticationSelector())
+                .flatMap(selector -> Optional.ofNullable(selector.getAuthentication(repository)))
+                .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
+
+        if (!this.skipCache) {
             fileRequesterBuilder.withCacheDir(this.cacheDirectory);
         }
 
@@ -490,7 +493,7 @@ public class WGet extends AbstractMojo {
                 .withPassword(this.password)
                 .withServerId(this.serverId)
                 .withPreemptiveAuth(this.preemptiveAuth)
-                .withSecDispatcher(this.securityDispatcher)
+                .withSecDispatcher(this.secDispatcher)
                 .withMavenSession(this.session)
                 .withRedirectsEnabled(this.followRedirects)
                 .withLog(this.getLog())
@@ -498,39 +501,52 @@ public class WGet extends AbstractMojo {
         fileRequester.download(outputFile, getAdditionalHeaders());
     }
 
+    private void addProxy(final HttpFileRequester.Builder fileRequesterBuilder,
+                          final RemoteRepository repository,
+                          final Proxy proxy) {
+        fileRequesterBuilder.withProxyHost(proxy.getHost());
+        fileRequesterBuilder.withProxyPort(proxy.getPort());
+
+        final RemoteRepository proxyRepo = new RemoteRepository.Builder(repository)
+                .setProxy(proxy)
+                .build();
+
+        try ( final AuthenticationContext ctx = AuthenticationContext.forProxy(this.session.getRepositorySession(),
+                proxyRepo) ) {
+            fileRequesterBuilder.withProxyUserName(ctx.get(AuthenticationContext.USERNAME));
+            fileRequesterBuilder.withProxyPassword(ctx.get(AuthenticationContext.PASSWORD));
+            fileRequesterBuilder.withNtlmDomain(ctx.get(AuthenticationContext.NTLM_DOMAIN));
+            fileRequesterBuilder.withNtlmHost(ctx.get(AuthenticationContext.NTLM_WORKSTATION));
+        }
+    }
+
+    private void addAuthentication(final HttpFileRequester.Builder fileRequesterBuilder,
+                                   final RemoteRepository repository,
+                                   final Authentication authentication) {
+        final RemoteRepository authRepo = new RemoteRepository.Builder(repository)
+                .setAuthentication(authentication)
+                .build();
+        try (final AuthenticationContext authCtx = AuthenticationContext.forRepository(
+                this.session.getRepositorySession(),
+                authRepo)) {
+            final String username = authCtx.get(AuthenticationContext.USERNAME);
+            final String password = authCtx.get(AuthenticationContext.PASSWORD);
+            final String ntlmDomain = authCtx.get(AuthenticationContext.NTLM_DOMAIN);
+            final String ntlmHost = authCtx.get(AuthenticationContext.NTLM_WORKSTATION);
+
+            getLog().debug("providing custom authentication");
+            getLog().debug("username: " + this.username + " and password: ***");
+
+            fileRequesterBuilder.withUsername(username);
+            fileRequesterBuilder.withPassword(password);
+            fileRequesterBuilder.withNtlmDomain(ntlmDomain);
+            fileRequesterBuilder.withNtlmHost(ntlmHost);
+        }
+    }
+
     private List<Header> getAdditionalHeaders() {
         return headers.entrySet().stream()
                 .map(pair -> new BasicHeader(pair.getKey(), pair.getValue()))
                 .collect(Collectors.toList());
     }
-
-    /**
-     * Check if target host should be accessed via proxy.
-     * @param proxyInfo Proxy info to check for proxy config.
-     * @return True if the target host will be requested via a proxy.
-     */
-    private boolean useHttpProxy(final ProxyInfo proxyInfo) {
-        final boolean result;
-        if (proxyInfo == null) {
-            result = false;
-        } else {
-            if (proxyInfo.getHost() == null) {
-                result = false;
-            } else {
-                if (proxyInfo.getNonProxyHosts() == null) {
-                    result = true;
-                    getLog().debug(
-                        String.format("%s is a proxy host", this.uri.getHost())
-                    );
-                } else {
-                    result = !ProxyUtils.validateNonProxyHosts(proxyInfo, this.uri.getHost());
-                    getLog().debug(
-                        String.format("%s is a non-proxy host", this.uri.getHost())
-                    );
-                }
-            }
-        }
-        return result;
-    }
-
 }

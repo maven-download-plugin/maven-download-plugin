@@ -15,32 +15,38 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.building.ModelBuildingRequest;
+import org.apache.maven.plugin.AbstractMojo;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.LifecyclePhase;
+import org.apache.maven.plugins.annotations.Mojo;
+import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingException;
+import org.apache.maven.project.ProjectBuildingResult;
+import org.codehaus.plexus.archiver.UnArchiver;
+import org.codehaus.plexus.archiver.manager.ArchiverManager;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
+import org.eclipse.aether.resolution.DependencyResolutionException;
+
+import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import org.apache.maven.artifact.factory.ArtifactFactory;
-import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
-import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
-import org.apache.maven.artifact.resolver.ArtifactResolutionException;
-import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.artifact.resolver.ArtifactResolver;
-import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.plugins.annotations.Component;
-import org.apache.maven.plugins.annotations.LifecyclePhase;
-import org.apache.maven.plugins.annotations.Mojo;
-import org.apache.maven.plugins.annotations.Parameter;
-import org.apache.maven.project.MavenProject;
-import org.apache.maven.project.MavenProjectBuilder;
-import org.apache.maven.project.ProjectBuildingException;
-import org.codehaus.plexus.archiver.UnArchiver;
-import org.codehaus.plexus.archiver.manager.ArchiverManager;
+import java.util.stream.Collectors;
+
+import static org.apache.maven.RepositoryUtils.toArtifact;
 
 /**
  * This mojo is designed to download a maven artifact from the repository and
@@ -49,7 +55,7 @@ import org.codehaus.plexus.archiver.manager.ArchiverManager;
  * @author Marc-Andre Houle
  */
 @Mojo(name = "artifact", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false)
-public class Artifact extends AbstractMojo {
+public class ArtifactMojo extends AbstractMojo {
     /**
      * The artifact Id of the file to download.
      */
@@ -115,28 +121,31 @@ public class Artifact extends AbstractMojo {
     @Parameter(property = "dependencyDepth", defaultValue = "0")
     private long dependencyDepth;
 
-    @Parameter(property = "project.remoteArtifactRepositories")
-    private List remoteRepositories;
+    /**
+     * The Maven Session.
+     */
+    @Parameter(defaultValue = "${session}", required = true, readonly = true)
+    protected MavenSession session;
 
-    @Component
+    @Inject
     private ArtifactFactory artifactFactory;
 
-    @Component
-    private ArtifactResolver resolver;
-
-    @Component
-    private ArtifactMetadataSource metadataSource;
-
-    @Component
-    private MavenProjectBuilder mavenProjectBuilder;
-
-    @Component
+    @Inject
     private ArchiverManager archiverManager;
 
-    @Parameter(property = "localRepository")
-    private ArtifactRepository localRepository;
+    /**
+     * The (injected) {@link RepositorySystem} instance.
+     */
+    @Inject
+    protected RepositorySystem repositorySystem;
 
-    private final Set<org.apache.maven.artifact.Artifact> artifactToCopy = new HashSet<org.apache.maven.artifact.Artifact>();
+    /**
+     * The (injected) {@link ProjectBuilder} instance.
+     */
+    @Inject
+    protected ProjectBuilder projectBuilder;
+
+    private final Set<Artifact> artifactToCopy = new HashSet<Artifact>();
 
     /**
      * Will download the specified artifact in the specified directory.
@@ -150,10 +159,14 @@ public class Artifact extends AbstractMojo {
         if (this.dependencyDepth > 0 && this.outputFileName != null) {
             throw new MojoFailureException("Cannot have a dependency depth higher than 0 and an outputFileName");
         }
-        org.apache.maven.artifact.Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
-        downloadAndAddArtifact(artifact, dependencyDepth);
+        Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
+        try {
+            downloadAndAddArtifact(artifact, dependencyDepth);
+        } catch (ArtifactResolutionException | DependencyResolutionException | ProjectBuildingException e) {
+            throw new MojoFailureException(e.getMessage());
+        }
         createOutputDirectoryIfNecessary();
-        for (org.apache.maven.artifact.Artifact copy : this.artifactToCopy) {
+        for (Artifact copy : this.artifactToCopy) {
             if (this.unpack) {
                 this.unpackFileToDirectory(copy);
             } else {
@@ -167,15 +180,18 @@ public class Artifact extends AbstractMojo {
      * and will fetch the dependency until the specified depth is reached.
      * @param artifact The artifact to download and set.
      * @param dependencyDepth2 The depth that will be downloaded for the dependencies.
+     * @throws ArtifactResolutionException thrown if there are problems during artifact resolution
+     * @throws DependencyResolutionException thrown if there are problems during transitive dependency resolution
      */
-    private void downloadAndAddArtifact(org.apache.maven.artifact.Artifact artifact, long dependencyDepth2) throws MojoFailureException {
+    private void downloadAndAddArtifact(Artifact artifact, long depth)
+            throws ArtifactResolutionException, DependencyResolutionException, ProjectBuildingException {
         this.downloadArtifact(artifact);
         this.artifactToCopy.add(artifact);
-        if (dependencyDepth > 0) {
-            Set<org.apache.maven.artifact.Artifact> dependencies = getTransitiveDependency(artifact);
-            getLog().debug("Nummber dependencies : " + dependencies.size());
-            for (org.apache.maven.artifact.Artifact dependency : dependencies) {
-                downloadAndAddArtifact(dependency, dependencyDepth2 - 1);
+        if (this.dependencyDepth > 0) {
+            Set<Artifact> dependencies = this.resolveDependencies(artifact);
+            getLog().debug("Number of dependencies: " + dependencies.size());
+            for (Artifact dependency : dependencies) {
+                downloadAndAddArtifact(dependency, depth - 1);
             }
         }
     }
@@ -184,18 +200,16 @@ public class Artifact extends AbstractMojo {
      * Will check if the artifact is in the local repository and download it if
      * it is not.
      * @param artifact The artifact to check if it is present in the local directory.
-     * @throws MojoFailureException If an error happen while resolving the artifact.
+     * @throws ArtifactResolutionException If an error happen while resolving the artifact.
      */
-    private void downloadArtifact(org.apache.maven.artifact.Artifact artifact) throws MojoFailureException {
-        try {
-            resolver.resolve(artifact, remoteRepositories, localRepository);
-        } catch (ArtifactResolutionException e) {
-            getLog().debug("Artifact could not be resolved.", e);
-            throw new MojoFailureException("Artifact could not be resolved.");
-        } catch (ArtifactNotFoundException e) {
-            getLog().debug("Artifact could not be found.", e);
-            throw new MojoFailureException("Artifact could not be found.");
-        }
+    private void downloadArtifact(Artifact artifact) throws ArtifactResolutionException {
+        ArtifactResult artifactResult = repositorySystem.resolveArtifact(session.getRepositorySession(),
+                new ArtifactRequest(toArtifact(artifact),
+                        session.getCurrentProject().getRemoteProjectRepositories(),
+                        getClass().getName()));
+        artifact.setFile(artifactResult.getArtifact().getFile());
+        artifact.setVersion(artifactResult.getArtifact().getVersion());
+        artifact.setResolved(artifactResult.isResolved());
     }
 
     /**
@@ -203,7 +217,7 @@ public class Artifact extends AbstractMojo {
      * @param artifact The artifact already resolved to be copied.
      * @throws MojoFailureException If an error happened while copying the file.
      */
-    private void copyFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoFailureException {
+    private void copyFileToDirectory(Artifact artifact) throws MojoFailureException {
         File toCopy = artifact.getFile();
         if (toCopy != null && toCopy.exists() && toCopy.isFile()) {
             try {
@@ -224,7 +238,7 @@ public class Artifact extends AbstractMojo {
         }
     }
 
-    private void unpackFileToDirectory(org.apache.maven.artifact.Artifact artifact) throws MojoExecutionException {
+    private void unpackFileToDirectory(Artifact artifact) throws MojoExecutionException {
         File toUnpack = artifact.getFile();
         if (toUnpack != null && toUnpack.exists() && toUnpack.isFile()) {
             try {
@@ -250,33 +264,40 @@ public class Artifact extends AbstractMojo {
      * @param artifact The artifact for which transitive dependencies need to be
      * downloaded.
      * @return The set of dependencies that was dependant.
-     * @throws MojoFailureException If anything goes wrong when getting transitive dependency.
-     * Note : Suppress warning used for the uncheck cast of artifact
-     * set.
      */
-    @SuppressWarnings("unchecked")
-    private Set<org.apache.maven.artifact.Artifact> getTransitiveDependency(org.apache.maven.artifact.Artifact artifact) throws MojoFailureException {
-        try {
-            org.apache.maven.artifact.Artifact pomArtifact = artifactFactory.createArtifact(artifact.getGroupId(), artifact.getArtifactId(), artifact
-                .getVersion(), artifact.getClassifier(), "pom");
-            MavenProject pomProject = mavenProjectBuilder.buildFromRepository(pomArtifact, this.remoteRepositories, this.localRepository);
-            Set<org.apache.maven.artifact.Artifact> dependents = pomProject.createArtifacts(this.artifactFactory, null, null);
-            ArtifactResolutionResult result = resolver.resolveTransitively(dependents, pomArtifact, this.localRepository, this.remoteRepositories,
-                this.metadataSource, null);
-            if (result != null) {
-                getLog().debug("Found transitive dependency : " + result);
-                return result.getArtifacts();
-            }
-        } catch (ArtifactResolutionException e) {
-            getLog().debug("Could not resolved the dependency", e);
-            throw new MojoFailureException("Could not resolved the dependency : " + e.getMessage());
-        } catch (ArtifactNotFoundException e) {
-            getLog().debug("Could not find the dependency", e);
-            throw new MojoFailureException("Could not find the dependency : " + e.getMessage());
-        } catch (ProjectBuildingException e) {
-            getLog().debug("Error Creating the pom project for artifact : " + artifact, e);
-            throw new MojoFailureException("Error getting transitive dependencies : " + e.getMessage());
+    private Set<Artifact> resolveDependencies(Artifact artifact) throws ProjectBuildingException {
+        Artifact pomArtifact = artifactFactory.createArtifact(artifact.getGroupId(),
+                artifact.getArtifactId(),
+                artifact.getVersion(),
+                artifact.getClassifier(),
+                "pom");
+        if (getLog().isDebugEnabled()) {
+            getLog().debug(String.format("Resolving dependencies for artifact %s...", artifact.getId()));
         }
-        return null;
+        ProjectBuildingResult result =
+                projectBuilder.build( pomArtifact, false,
+                        new DefaultProjectBuildingRequest() {{
+                            setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
+                            setResolveDependencies(false);
+                            setLocalRepository(session.getLocalRepository());
+                            setRemoteRepositories(session.getCurrentProject().getRemoteArtifactRepositories());
+                            setUserProperties(session.getUserProperties());
+                            setSystemProperties(session.getSystemProperties());
+                            setActiveProfileIds(session.getRequest().getActiveProfiles());
+                            setInactiveProfileIds(session.getRequest().getInactiveProfiles());
+                            setRepositorySession(session.getRepositorySession());
+                            setBuildStartTime(session.getStartTime());
+                        }});
+        return result.getProject().getDependencies().parallelStream()
+                .map(d -> artifactFactory.createArtifact(d.getGroupId(), d.getArtifactId(),
+                        d.getVersion(), d.getType(), d.getScope()))
+                .peek(a -> {
+                    try {
+                        this.downloadArtifact(a);
+                    } catch (ArtifactResolutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(Collectors.toSet());
     }
 }

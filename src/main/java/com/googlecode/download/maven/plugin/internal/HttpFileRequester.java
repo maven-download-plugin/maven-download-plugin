@@ -259,7 +259,7 @@ public class HttpFileRequester {
         private String decrypt(String str, String server) {
             try  {
                 return this.secDispatcher.decrypt(str);
-            } catch(final SecDispatcherException e) {
+            } catch (final SecDispatcherException e) {
                 this.log.warn(String.format("Failed to decrypt password/passphrase for server %s,"
                         + " using auth token as is", server), e);
                 return str;
@@ -271,7 +271,6 @@ public class HttpFileRequester {
     /**
      * Downloads the resource with the given URI to the specified local file system location.
      *
-     * @param uri the target URI
      * @param outputFile the output file
      * @param headers list of headers
      */
