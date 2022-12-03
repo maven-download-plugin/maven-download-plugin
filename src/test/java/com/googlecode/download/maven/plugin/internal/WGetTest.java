@@ -1,5 +1,6 @@
 package com.googlecode.download.maven.plugin.internal;
 
+import com.googlecode.download.maven.plugin.test.TestUtils;
 import org.apache.http.*;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.entity.StringEntity;
@@ -20,17 +21,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Map;
@@ -39,7 +38,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -65,25 +63,15 @@ public class WGetTest {
     }
 
     @After
-    public void tearDown() throws IOException {
-        for (Path dir : Arrays.asList(cacheDirectory, outputDirectory)) {
-            if (Files.exists(dir)) {
-                Files.walkFileTree(dir, new SimpleFileVisitor<Path>()
-                {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        Files.delete(file);
-                        return CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                        Files.delete(dir);
-                        return CONTINUE;
-                    }
-                });
+    public void tearDown() {
+        Arrays.asList(cacheDirectory, outputDirectory).forEach(dir -> {
+            try {
+                TestUtils.tearDownTempDir(dir);
             }
-        }
+            catch (IOException e) {
+                // ignore
+            }
+        });
     }
 
     private <T, M extends Mojo> void setVariableValueToObject(M mojo, String variable, T value) {
@@ -107,6 +95,7 @@ public class WGetTest {
         setVariableValueToObject(mojo, "settings", new Settings());
         setVariableValueToObject(mojo, "buildContext", buildContext);
         setVariableValueToObject(mojo, "overwrite", true);
+        setVariableValueToObject(mojo, "securityDispatcher", mock(SecDispatcher.class));
         try {
             setVariableValueToObject(mojo, "uri", new URI(
                     "http://test"));

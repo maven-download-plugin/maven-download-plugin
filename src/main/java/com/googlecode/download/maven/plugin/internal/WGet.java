@@ -16,10 +16,6 @@ package com.googlecode.download.maven.plugin.internal;
 
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
 import org.apache.http.Header;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.message.BasicHeader;
 import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenSession;
@@ -31,7 +27,6 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
-import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.apache.maven.wagon.proxy.ProxyInfo;
 import org.apache.maven.wagon.proxy.ProxyUtils;
@@ -43,10 +38,8 @@ import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.archiver.snappy.SnappyUnArchiver;
 import org.codehaus.plexus.archiver.xz.XZUnArchiver;
 import org.codehaus.plexus.components.io.filemappers.FileMapper;
-import org.codehaus.plexus.util.StringUtils;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 
 import java.io.File;
 import java.io.IOException;
@@ -288,6 +281,14 @@ public class WGet extends AbstractMojo {
     private FileMapper[] fileMappers;
 
     /**
+     * If {@code true}, preemptive authentication will be used
+     *
+     * @since 1.6.9
+     */
+    @Parameter(property = "preemptiveAuth", defaultValue = "false")
+    private boolean preemptiveAuth;
+
+    /**
      * Method call when the mojo is executed for the first time.
      *
      * @throws MojoExecutionException if an error is occuring in this mojo.
@@ -305,18 +306,18 @@ public class WGet extends AbstractMojo {
             return;
         }
 
-        if (isNotBlank(serverId) && (isNotBlank(username) || isNotBlank(password))) {
+        if (isNotBlank(this.serverId) && (isNotBlank(this.username) || isNotBlank(this.password))) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
 
-        if (settings == null) {
+        if (this.settings == null) {
             getLog().warn("settings is null");
         }
         if (this.settings.isOffline()) {
             getLog().debug("maven-download-plugin:wget offline mode");
         }
         getLog().debug("Got settings");
-        if (retries < 1) {
+        if (this.retries < 1) {
             throw new MojoFailureException("retries must be at least 1");
         }
 
@@ -462,30 +463,6 @@ public class WGet extends AbstractMojo {
 
 
     private void doGet(final File outputFile) throws MojoExecutionException, IOException {
-        CredentialsProvider credentialsProvider = null;
-        if (isNotBlank(username)) {
-            getLog().debug("providing custom authentication");
-            getLog().debug("username: " + username + " and password: ***");
-
-            credentialsProvider = new BasicCredentialsProvider();
-            credentialsProvider.setCredentials(
-                    new AuthScope(this.uri.getHost(), this.uri.getPort()),
-                    new UsernamePasswordCredentials(username, password));
-
-        } else if (isNotBlank(serverId)) {
-            getLog().debug("providing custom authentication for " + serverId);
-            Server server = settings.getServer(serverId);
-            if (server == null) {
-                throw new MojoExecutionException(String.format("Server %s not found", serverId));
-            }
-            getLog().debug(String.format("serverId %s supplies username: %s and password: ***",  serverId, server.getUsername() ));
-
-            credentialsProvider = new BasicCredentialsProvider();
-            credentialsProvider.setCredentials(
-                    new AuthScope(this.uri.getHost(), this.uri.getPort()),
-                    new UsernamePasswordCredentials(server.getUsername(), decrypt(server.getPassword(), serverId)));
-        }
-
         final ProxyInfo proxyInfo = this.wagonManager.getProxy(this.uri.getScheme());
         final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
         if (this.useHttpProxy(proxyInfo)) {
@@ -508,31 +485,23 @@ public class WGet extends AbstractMojo {
                         : new SilentProgressReport(this.getLog()))
                 .withConnectTimeout(this.readTimeOut)
                 .withSocketTimeout(this.readTimeOut)
-                .withCredentialsProvider(credentialsProvider)
+                .withUri(this.uri)
+                .withUsername(this.username)
+                .withPassword(this.password)
+                .withServerId(this.serverId)
+                .withPreemptiveAuth(this.preemptiveAuth)
+                .withSecDispatcher(this.securityDispatcher)
+                .withMavenSession(this.session)
                 .withRedirectsEnabled(this.followRedirects)
                 .withLog(this.getLog())
                 .build();
-        fileRequester.download(this.uri, outputFile, getAdditionalHeaders());
+        fileRequester.download(outputFile, getAdditionalHeaders());
     }
 
     private List<Header> getAdditionalHeaders() {
         return headers.entrySet().stream()
                 .map(pair -> new BasicHeader(pair.getKey(), pair.getValue()))
                 .collect(Collectors.toList());
-    }
-
-    private String decrypt(String str, String server) {
-        try  {
-            return securityDispatcher.decrypt(str);
-        } catch(final SecDispatcherException e) {
-            getLog().warn(
-                String.format(
-                    "Failed to decrypt password/passphrase for server %s, using auth token as is",
-                    server
-                ), e
-            );
-            return str;
-        }
     }
 
     /**
