@@ -19,9 +19,9 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -40,11 +40,9 @@ public class HttpFileRequesterTest extends AbstractMojoTestCase {
     private final static String OUTPUT_FILE_NAME = "output-file";
     private WireMockServer wireMock;
 
-    private final static Random RND = new Random();
-
     @Before
     public void setUp() throws Exception {
-        this.wireMock = new WireMockServer(RND.nextInt(0x7000) + 0x1000);
+        this.wireMock = new WireMockServer(options().dynamicPort());
         this.wireMock.start();
         this.outputDirectory.create();
         this.outputFile = new File(this.outputDirectory.getRoot(), OUTPUT_FILE_NAME);
