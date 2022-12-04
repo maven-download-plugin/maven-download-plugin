@@ -1,6 +1,5 @@
 package com.googlecode.download.maven.plugin.internal;
 
-import com.googlecode.download.maven.plugin.test.TestUtils;
 import org.apache.http.*;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.entity.StringEntity;
@@ -18,7 +17,9 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.settings.Settings;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
@@ -51,27 +52,22 @@ import static org.mockito.Mockito.*;
  * @author Andrzej Jarmoniuk
  */
 public class WGetTest {
+    @Rule
+    public TemporaryFolder temporaryFolder = new TemporaryFolder();
     private Path cacheDirectory;
-
     private final static String OUTPUT_FILE_NAME = "output-file";
     private Path outputDirectory;
 
     @Before
     public void setUp() throws Exception {
-        cacheDirectory = Files.createTempDirectory("wget-test-cache-");
-        outputDirectory = Files.createTempDirectory("wget-test-");
+        temporaryFolder.create();
+        cacheDirectory = temporaryFolder.newFolder("wget-test-cache-").toPath();
+        outputDirectory = temporaryFolder.newFolder("wget-test-").toPath();
     }
 
     @After
     public void tearDown() {
-        Arrays.asList(cacheDirectory, outputDirectory).forEach(dir -> {
-            try {
-                TestUtils.tearDownTempDir(dir);
-            }
-            catch (IOException e) {
-                // ignore
-            }
-        });
+        temporaryFolder.delete();
     }
 
     private <T, M extends Mojo> void setVariableValueToObject(M mojo, String variable, T value) {
