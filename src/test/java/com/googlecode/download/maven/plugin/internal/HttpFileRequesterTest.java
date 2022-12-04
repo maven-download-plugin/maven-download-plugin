@@ -6,7 +6,6 @@ import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,11 +42,6 @@ public class HttpFileRequesterTest {
     @Before
     public void setUp() throws Exception {
         this.outputFile = new File(this.outputDirectory.getRoot(), OUTPUT_FILE_NAME);
-    }
-
-    @After
-    public void tearDown() throws Exception {
-        this.wireMock.stop();
     }
 
     private HttpFileRequester.Builder createFileRequesterBuilder() throws Exception {
