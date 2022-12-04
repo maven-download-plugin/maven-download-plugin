@@ -15,6 +15,37 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import com.googlecode.download.maven.plugin.internal.cache.FileBackedIndex;
+import com.googlecode.download.maven.plugin.internal.cache.FileIndexResourceFactory;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.NTCredentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.AuthCache;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.cache.HttpCacheContext;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.cache.CacheConfig;
+import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
+import org.apache.http.impl.client.cache.CachingHttpClients;
+import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.settings.Server;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,32 +56,9 @@ import java.nio.file.Files;
 import java.nio.file.NotDirectoryException;
 import java.util.List;
 
-import com.googlecode.download.maven.plugin.internal.cache.FileBackedIndex;
-import com.googlecode.download.maven.plugin.internal.cache.FileIndexResourceFactory;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.HttpResponse;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.NTCredentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.cache.HttpCacheContext;
-import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.cache.CacheConfig;
-import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
-import org.apache.http.impl.client.cache.CachingHttpClients;
-import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
-import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
-import org.apache.maven.plugin.logging.Log;
-
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
-import static org.apache.maven.shared.utils.StringUtils.isBlank;
+import static java.util.Objects.requireNonNull;
+import static org.apache.maven.shared.utils.StringUtils.isNotBlank;
 
 /**
  * File requester that can download resources over HTTP transport using Apache HttpClient 4.x.
@@ -66,6 +74,8 @@ public class HttpFileRequester {
     private File cacheDir;
     private Log log;
     private boolean redirectsEnabled;
+    private URI uri;
+    private boolean preemptiveAuth;
 
     private HttpFileRequester() {
     }
@@ -75,15 +85,26 @@ public class HttpFileRequester {
         private File cacheDir;
         private int connectTimeout = 3000;
         private int socketTimeout = 3000;
+        private URI uri;
+        private String username;
+        private String password;
+        private String serverId;
         private String proxyHost;
         private int proxyPort;
         private String proxyUserName;
         private String proxyPassword;
         private String proxyNtlmHost;
         private String proxyNtlmDomain;
-        private CredentialsProvider credentialsProvider;
         private Log log;
         private boolean redirectsEnabled;
+        private SecDispatcher secDispatcher;
+        private MavenSession mavenSession;
+        private boolean preemptiveAuth;
+
+        public Builder withUri(URI uri) {
+            this.uri = uri;
+            return this;
+        }
 
         public Builder withProgressReport(ProgressReport progressReport) {
             this.progressReport = progressReport;
@@ -105,8 +126,18 @@ public class HttpFileRequester {
             return this;
         }
 
-        public Builder withCredentialsProvider(CredentialsProvider credentialsProvider) {
-            this.credentialsProvider = credentialsProvider;
+        public Builder withUsername(String username) {
+            this.username = username;
+            return this;
+        }
+
+        public Builder withPassword(String password) {
+            this.password = password;
+            return this;
+        }
+
+        public Builder withServerId(String serverId) {
+            this.serverId = serverId;
             return this;
         }
 
@@ -145,45 +176,94 @@ public class HttpFileRequester {
             return this;
         }
 
+        public Builder withSecDispatcher(SecDispatcher secDispatcher) {
+            this.secDispatcher = secDispatcher;
+            return this;
+        }
+
         public Builder withRedirectsEnabled(boolean followRedirects) {
             this.redirectsEnabled = followRedirects;
             return this;
         }
 
-        public HttpFileRequester build() {
+        public Builder withPreemptiveAuth(boolean preemptiveAuth) {
+            this.preemptiveAuth = preemptiveAuth;
+            return this;
+        }
+
+        public Builder withMavenSession(MavenSession mavenSession) {
+            this.mavenSession = mavenSession;
+            return this;
+        }
+
+        public HttpFileRequester build() throws MojoExecutionException {
             final HttpFileRequester instance = new HttpFileRequester();
+            instance.uri = requireNonNull(this.uri);
             instance.progressReport = this.progressReport;
             instance.connectTimeout = this.connectTimeout;
             instance.socketTimeout = this.socketTimeout;
             instance.cacheDir = this.cacheDir;
             instance.redirectsEnabled = this.redirectsEnabled;
-            instance.log = this.log;
+            instance.preemptiveAuth = this.preemptiveAuth;
+            instance.log = requireNonNull(this.log);
 
-            if (!isBlank(this.proxyHost)) {
-                instance.routePlanner = new DefaultProxyRoutePlanner(new HttpHost(this.proxyHost, this.proxyPort));
-                if (!isBlank(this.proxyUserName)) {
-                    final Credentials creds;
-                    if (!isBlank(this.proxyNtlmHost) || !isBlank(this.proxyNtlmDomain)) {
-                        creds = new NTCredentials(this.proxyUserName,
-                                this.proxyPassword,
-                                this.proxyNtlmHost,
-                                this.proxyNtlmDomain);
-                    } else {
-                        creds = new UsernamePasswordCredentials(proxyUserName,
-                                this.proxyPassword);
-                    }
-                    AuthScope authScope = new AuthScope(this.proxyHost, this.proxyPort);
-                    if (this.credentialsProvider == null) {
-                        this.credentialsProvider = new BasicCredentialsProvider();
-                    }
-                    this.credentialsProvider.setCredentials(authScope, creds);
-                    instance.credentialsProvider = credentialsProvider;
+            requireNonNull(this.secDispatcher);
+            requireNonNull(this.mavenSession);
+
+            instance.credentialsProvider = new BasicCredentialsProvider();
+            if (isNotBlank(this.serverId)) {
+                if (this.log.isDebugEnabled()) {
+                    this.log.debug("providing custom authentication for " + this.serverId);
+                }
+                final Server server = this.mavenSession.getSettings().getServer(serverId);
+                if (server == null) {
+                    throw new MojoExecutionException(String.format("Server %s not found", serverId));
+                }
+                if (this.log.isDebugEnabled()) {
+                    this.log.debug(String.format("serverId %s supplies username: %s and password: ***",
+                            serverId, server.getUsername()));
+                }
+                instance.credentialsProvider.setCredentials(
+                        new AuthScope(this.uri.getHost(), this.uri.getPort()),
+                        new UsernamePasswordCredentials(server.getUsername(),
+                                decrypt(server.getPassword(), serverId)));
+            } else if (isNotBlank(this.username)) {
+                if (this.log.isDebugEnabled()) {
+                    this.log.debug("providing custom authentication");
+                    this.log.debug("username: " + username + " and password: ***");
+                }
+                instance.credentialsProvider.setCredentials(
+                        new AuthScope(this.uri.getHost(), this.uri.getPort()),
+                        new UsernamePasswordCredentials(this.username, this.password));
+            }
+
+            if (isNotBlank(this.proxyHost)) {
+                // TODO: authenticate with the proxy
+                final HttpHost host = new HttpHost(this.proxyHost, this.proxyPort);
+                instance.routePlanner = new DefaultProxyRoutePlanner(host);
+                if (isNotBlank(this.proxyUserName) && isNotBlank(this.proxyPassword)) {
+                    instance.credentialsProvider.setCredentials(
+                            new AuthScope(host.getHostName(), host.getPort()),
+                            isNotBlank(this.proxyNtlmHost) && isNotBlank(this.proxyNtlmDomain)
+                                ? new NTCredentials(this.proxyUserName, this.proxyPassword, this.proxyNtlmHost,
+                                    this.proxyNtlmDomain)
+                                : new UsernamePasswordCredentials(this.proxyUserName, this.proxyPassword));
                 }
             } else {
                 instance.routePlanner = new SystemDefaultRoutePlanner(ProxySelector.getDefault());
             }
 
             return instance;
+        }
+
+        private String decrypt(String str, String server) {
+            try  {
+                return this.secDispatcher.decrypt(str);
+            } catch(final SecDispatcherException e) {
+                this.log.warn(String.format("Failed to decrypt password/passphrase for server %s,"
+                        + " using auth token as is", server), e);
+                return str;
+            }
         }
     }
 
@@ -195,18 +275,22 @@ public class HttpFileRequester {
      * @param outputFile the output file
      * @param headers list of headers
      */
-    public void download(final URI uri, final File outputFile, List<Header> headers) throws IOException {
+    public void download(final File outputFile, List<Header> headers) throws IOException {
         final CachingHttpClientBuilder httpClientBuilder = createHttpClientBuilder();
         try (final CloseableHttpClient httpClient = httpClientBuilder.build()) {
             final HttpCacheContext clientContext = HttpCacheContext.create();
-            if (this.credentialsProvider != null) {
-                clientContext.setCredentialsProvider(credentialsProvider);
+            clientContext.setCredentialsProvider(this.credentialsProvider);
+
+            if (this.preemptiveAuth) {
+                final AuthCache authCache = new BasicAuthCache();
+                authCache.put(new HttpHost(this.uri.getHost(), this.uri.getPort()), new BasicScheme());
+                clientContext.setAuthCache(authCache);
             }
 
-            final HttpGet httpGet = new HttpGet(uri);
+            final HttpGet httpGet = new HttpGet(this.uri);
             headers.forEach(httpGet::setHeader);
             httpClient.execute(httpGet, response ->
-                    handleResponse( uri, outputFile, clientContext, response ), clientContext);
+                    handleResponse(this.uri, outputFile, clientContext, response), clientContext);
         }
     }
 
@@ -262,8 +346,10 @@ public class HttpFileRequester {
                 .build();
         final CachingHttpClientBuilder httpClientBuilder =
                 (CachingHttpClientBuilder) CachingHttpClients.custom()
+                        .setDefaultCredentialsProvider(this.credentialsProvider)
                         .setRoutePlanner(routePlanner)
-                        .setDefaultRequestConfig(requestConfig);
+                        .setDefaultRequestConfig(requestConfig)
+                ;
         if (cacheDir != null) {
             CacheConfig config = CacheConfig.custom()
                     .setHeuristicDefaultLifetime(HEURISTIC_DEFAULT_LIFETIME)
@@ -276,6 +362,7 @@ public class HttpFileRequester {
                     .setHttpCacheStorage(new FileBackedIndex(this.cacheDir.toPath(), this.log))
                     .setDeleteCache(false);
         }
+
         return httpClientBuilder;
     }
 }

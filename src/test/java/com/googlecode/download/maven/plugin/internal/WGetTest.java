@@ -17,20 +17,20 @@ import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.settings.Settings;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Map;
@@ -39,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -53,37 +52,22 @@ import static org.mockito.Mockito.*;
  * @author Andrzej Jarmoniuk
  */
 public class WGetTest {
+    @Rule
+    public TemporaryFolder temporaryFolder = new TemporaryFolder();
     private Path cacheDirectory;
-
     private final static String OUTPUT_FILE_NAME = "output-file";
     private Path outputDirectory;
 
     @Before
     public void setUp() throws Exception {
-        cacheDirectory = Files.createTempDirectory("wget-test-cache-");
-        outputDirectory = Files.createTempDirectory("wget-test-");
+        temporaryFolder.create();
+        cacheDirectory = temporaryFolder.newFolder("wget-test-cache-").toPath();
+        outputDirectory = temporaryFolder.newFolder("wget-test-").toPath();
     }
 
     @After
-    public void tearDown() throws IOException {
-        for (Path dir : Arrays.asList(cacheDirectory, outputDirectory)) {
-            if (Files.exists(dir)) {
-                Files.walkFileTree(dir, new SimpleFileVisitor<Path>()
-                {
-                    @Override
-                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                        Files.delete(file);
-                        return CONTINUE;
-                    }
-
-                    @Override
-                    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
-                        Files.delete(dir);
-                        return CONTINUE;
-                    }
-                });
-            }
-        }
+    public void tearDown() {
+        temporaryFolder.delete();
     }
 
     private <T, M extends Mojo> void setVariableValueToObject(M mojo, String variable, T value) {
@@ -107,6 +91,7 @@ public class WGetTest {
         setVariableValueToObject(mojo, "settings", new Settings());
         setVariableValueToObject(mojo, "buildContext", buildContext);
         setVariableValueToObject(mojo, "overwrite", true);
+        setVariableValueToObject(mojo, "securityDispatcher", mock(SecDispatcher.class));
         try {
             setVariableValueToObject(mojo, "uri", new URI(
                     "http://test"));

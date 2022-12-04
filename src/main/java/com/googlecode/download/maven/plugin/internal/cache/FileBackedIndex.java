@@ -204,6 +204,6 @@ public final class FileBackedIndex implements HttpCacheStorage {
 
     @Override
     public void updateEntry(String key, HttpCacheUpdateCallback callback) {
-        assert false; // This method should not have been called
+        // do nothing
     }
 }
