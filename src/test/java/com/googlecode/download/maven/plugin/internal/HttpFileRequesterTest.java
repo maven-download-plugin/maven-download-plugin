@@ -6,7 +6,6 @@ import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
-import org.apache.maven.plugin.testing.AbstractMojoTestCase;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,7 +31,7 @@ import static org.mockito.Mockito.mock;
  *
  * @author Andrzej Jarmoniuk
  */
-public class HttpFileRequesterTest extends AbstractMojoTestCase {
+public class HttpFileRequesterTest {
     @Rule
     public TemporaryFolder outputDirectory = new TemporaryFolder();
     private File outputFile;
@@ -44,20 +43,12 @@ public class HttpFileRequesterTest extends AbstractMojoTestCase {
     public void setUp() throws Exception {
         this.wireMock = new WireMockServer(options().dynamicPort());
         this.wireMock.start();
-        this.outputDirectory.create();
         this.outputFile = new File(this.outputDirectory.getRoot(), OUTPUT_FILE_NAME);
-        super.setUp();
     }
 
     @After
     public void tearDown() throws Exception {
-        try {
-            this.wireMock.stop();
-            this.outputDirectory.delete();
-        }
-        finally {
-            super.tearDown();
-        }
+        this.wireMock.stop();
     }
 
     private HttpFileRequester.Builder createFileRequesterBuilder() throws Exception {
@@ -73,7 +64,7 @@ public class HttpFileRequesterTest extends AbstractMojoTestCase {
                 .withConnectTimeout(3000)
                 .withSocketTimeout(3000)
                 .withUri(new URI(this.wireMock.baseUrl()))
-                .withSecDispatcher(lookup(SecDispatcher.class, "mng-4384"))
+                .withSecDispatcher(mock(SecDispatcher.class))
                 .withRedirectsEnabled(false)
                 .withPreemptiveAuth(false)
                 .withCacheDir(null)
