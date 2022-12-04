@@ -1,6 +1,6 @@
 package com.googlecode.download.maven.plugin.internal;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.apache.http.auth.AUTH;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
@@ -34,15 +34,14 @@ import static org.mockito.Mockito.mock;
 public class HttpFileRequesterTest {
     @Rule
     public TemporaryFolder outputDirectory = new TemporaryFolder();
+    @Rule
+    public WireMockRule wireMock = new WireMockRule(options().dynamicPort());
     private File outputFile;
     private final static Log LOG = new SystemStreamLog();
     private final static String OUTPUT_FILE_NAME = "output-file";
-    private WireMockServer wireMock;
 
     @Before
     public void setUp() throws Exception {
-        this.wireMock = new WireMockServer(options().dynamicPort());
-        this.wireMock.start();
         this.outputFile = new File(this.outputDirectory.getRoot(), OUTPUT_FILE_NAME);
     }
 
