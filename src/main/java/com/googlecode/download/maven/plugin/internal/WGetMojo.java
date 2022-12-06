@@ -37,10 +37,8 @@ import org.eclipse.aether.repository.AuthenticationContext;
 import org.eclipse.aether.repository.Proxy;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.sonatype.plexus.build.incremental.BuildContext;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -241,14 +239,6 @@ public class WGetMojo extends AbstractMojo {
 
     @Inject
     private BuildContext buildContext;
-
-
-    /**
-     * (Injected) Maven Security Dispatcher
-     */
-    @Inject
-    @Named( "mng-4384" )
-    private SecDispatcher secDispatcher;
 
     /**
      * Runs the plugin only if the current project is the execution root.
@@ -493,7 +483,6 @@ public class WGetMojo extends AbstractMojo {
                 .withPassword(this.password)
                 .withServerId(this.serverId)
                 .withPreemptiveAuth(this.preemptiveAuth)
-                .withSecDispatcher(this.secDispatcher)
                 .withMavenSession(this.session)
                 .withRedirectsEnabled(this.followRedirects)
                 .withLog(this.getLog())
@@ -535,7 +524,7 @@ public class WGetMojo extends AbstractMojo {
             final String ntlmHost = authCtx.get(AuthenticationContext.NTLM_WORKSTATION);
 
             getLog().debug("providing custom authentication");
-            getLog().debug("username: " + this.username + " and password: ***");
+            getLog().debug("username: " + username + " and password: ***");
 
             fileRequesterBuilder.withUsername(username);
             fileRequesterBuilder.withPassword(password);

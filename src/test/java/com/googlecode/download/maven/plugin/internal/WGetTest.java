@@ -21,7 +21,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,7 +90,6 @@ public class WGetTest {
         setVariableValueToObject(mojo, "retries", 1);
         setVariableValueToObject(mojo, "buildContext", buildContext);
         setVariableValueToObject(mojo, "overwrite", true);
-        setVariableValueToObject(mojo, "secDispatcher", mock(SecDispatcher.class));
         try {
             setVariableValueToObject(mojo, "uri", new URI(
                     "http://test"));

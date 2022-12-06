@@ -43,8 +43,6 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.settings.Server;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,7 +95,6 @@ public class HttpFileRequester {
         private String proxyNtlmDomain;
         private Log log;
         private boolean redirectsEnabled;
-        private SecDispatcher secDispatcher;
         private MavenSession mavenSession;
         private boolean preemptiveAuth;
 
@@ -176,11 +173,6 @@ public class HttpFileRequester {
             return this;
         }
 
-        public Builder withSecDispatcher(SecDispatcher secDispatcher) {
-            this.secDispatcher = secDispatcher;
-            return this;
-        }
-
         public Builder withRedirectsEnabled(boolean followRedirects) {
             this.redirectsEnabled = followRedirects;
             return this;
@@ -207,7 +199,6 @@ public class HttpFileRequester {
             instance.preemptiveAuth = this.preemptiveAuth;
             instance.log = requireNonNull(this.log);
 
-            requireNonNull(this.secDispatcher);
             requireNonNull(this.mavenSession);
 
             instance.credentialsProvider = new BasicCredentialsProvider();
@@ -225,8 +216,7 @@ public class HttpFileRequester {
                 }
                 instance.credentialsProvider.setCredentials(
                         new AuthScope(this.uri.getHost(), this.uri.getPort()),
-                        new UsernamePasswordCredentials(server.getUsername(),
-                                decrypt(server.getPassword(), serverId)));
+                        new UsernamePasswordCredentials(server.getUsername(), server.getPassword()));
             } else if (isNotBlank(this.username)) {
                 if (this.log.isDebugEnabled()) {
                     this.log.debug("providing custom authentication");
@@ -254,16 +244,6 @@ public class HttpFileRequester {
             }
 
             return instance;
-        }
-
-        private String decrypt(String str, String server) {
-            try  {
-                return this.secDispatcher.decrypt(str);
-            } catch (final SecDispatcherException e) {
-                this.log.warn(String.format("Failed to decrypt password/passphrase for server %s,"
-                        + " using auth token as is", server), e);
-                return str;
-            }
         }
     }
 
