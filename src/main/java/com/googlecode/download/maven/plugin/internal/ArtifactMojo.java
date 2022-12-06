@@ -20,7 +20,6 @@ import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.plugin.AbstractMojo;
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -31,6 +30,7 @@ import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingResult;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.manager.ArchiverManager;
+import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -145,13 +146,14 @@ public class ArtifactMojo extends AbstractMojo {
     @Inject
     protected ProjectBuilder projectBuilder;
 
-    private final Set<Artifact> artifactToCopy = new HashSet<Artifact>();
+    private final Set<Artifact> artifacts = new HashSet<Artifact>();
 
     /**
      * Will download the specified artifact in the specified directory.
      * @see org.apache.maven.plugin.Mojo#execute()
+     * @throws MojoFailureException thrown if there is a problem while processing the request
      */
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    public void execute() throws MojoFailureException {
         if (this.skip) {
             getLog().info("maven-download-plugin:artifact skipped");
             return;
@@ -159,19 +161,20 @@ public class ArtifactMojo extends AbstractMojo {
         if (this.dependencyDepth > 0 && this.outputFileName != null) {
             throw new MojoFailureException("Cannot have a dependency depth higher than 0 and an outputFileName");
         }
-        Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
+        final Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
         try {
             downloadAndAddArtifact(artifact, dependencyDepth);
-        } catch (ArtifactResolutionException | DependencyResolutionException | ProjectBuildingException e) {
-            throw new MojoFailureException(e.getMessage());
-        }
-        createOutputDirectoryIfNecessary();
-        for (Artifact copy : this.artifactToCopy) {
-            if (this.unpack) {
-                this.unpackFileToDirectory(copy);
-            } else {
-                this.copyFileToDirectory(copy);
+            createOutputDirectoryIfNecessary();
+            for (Artifact copy : this.artifacts) {
+                if (this.unpack) {
+                    this.unpackFileToDirectory(copy);
+                } else {
+                    this.copyFileToDirectory(copy);
+                }
             }
+        } catch (ArtifactResolutionException | DependencyResolutionException | ProjectBuildingException |
+                 NoSuchArchiverException e) {
+            throw new MojoFailureException(e.getMessage());
         }
     }
 
@@ -179,19 +182,19 @@ public class ArtifactMojo extends AbstractMojo {
      * Download the artifact when possible and copy it to the target directory
      * and will fetch the dependency until the specified depth is reached.
      * @param artifact The artifact to download and set.
-     * @param dependencyDepth2 The depth that will be downloaded for the dependencies.
+     * @param maxDepth The depth that will be downloaded for the dependencies.
      * @throws ArtifactResolutionException thrown if there are problems during artifact resolution
      * @throws DependencyResolutionException thrown if there are problems during transitive dependency resolution
      */
-    private void downloadAndAddArtifact(Artifact artifact, long depth)
+    private void downloadAndAddArtifact(Artifact artifact, long maxDepth)
             throws ArtifactResolutionException, DependencyResolutionException, ProjectBuildingException {
         this.downloadArtifact(artifact);
-        this.artifactToCopy.add(artifact);
+        this.artifacts.add(artifact);
         if (this.dependencyDepth > 0) {
-            Set<Artifact> dependencies = this.resolveDependencies(artifact);
+            final Set<Artifact> dependencies = this.resolveDependencies(artifact);
             getLog().debug("Number of dependencies: " + dependencies.size());
-            for (Artifact dependency : dependencies) {
-                downloadAndAddArtifact(dependency, depth - 1);
+            for (final Artifact dependency : dependencies) {
+                downloadAndAddArtifact(dependency, maxDepth - 1);
             }
         }
     }
@@ -203,7 +206,7 @@ public class ArtifactMojo extends AbstractMojo {
      * @throws ArtifactResolutionException If an error happen while resolving the artifact.
      */
     private void downloadArtifact(Artifact artifact) throws ArtifactResolutionException {
-        ArtifactResult artifactResult = repositorySystem.resolveArtifact(session.getRepositorySession(),
+        final ArtifactResult artifactResult = repositorySystem.resolveArtifact(session.getRepositorySession(),
                 new ArtifactRequest(toArtifact(artifact),
                         session.getCurrentProject().getRemoteProjectRepositories(),
                         getClass().getName()));
@@ -218,37 +221,27 @@ public class ArtifactMojo extends AbstractMojo {
      * @throws MojoFailureException If an error happened while copying the file.
      */
     private void copyFileToDirectory(Artifact artifact) throws MojoFailureException {
-        File toCopy = artifact.getFile();
-        if (toCopy != null && toCopy.exists() && toCopy.isFile()) {
-            try {
-                getLog().info("Copying file " + toCopy.getName() + " to directory " + outputDirectory);
-                File outputFile = null;
-                if (this.outputFileName == null) {
-                    outputFile = new File(outputDirectory, toCopy.getName());
-                } else {
-                    outputFile = new File(outputDirectory, this.outputFileName);
-                }
-                Files.copy(toCopy.toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            } catch (IOException e) {
-                getLog().debug("Error while copying file", e);
-                throw new MojoFailureException("Error copying the file : " + e.getMessage());
-            }
-        } else {
-            throw new MojoFailureException("Artifact file not present : " + toCopy);
+        if (artifact.getFile() == null || !artifact.getFile().exists() || !artifact.getFile().isFile()) {
+            throw new MojoFailureException("Artifact file not resolved for artifact: "
+                    + artifact.getId());
+        }
+
+        try {
+            File outputFile = new File(outputDirectory, Optional.ofNullable(this.outputFileName)
+                    .orElse(artifact.getFile().getName()));
+            Files.copy(artifact.getFile().toPath(), outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new MojoFailureException("Error copying the file : " + e.getMessage());
         }
     }
 
-    private void unpackFileToDirectory(Artifact artifact) throws MojoExecutionException {
-        File toUnpack = artifact.getFile();
+    private void unpackFileToDirectory(Artifact artifact) throws NoSuchArchiverException {
+        final File toUnpack = artifact.getFile();
         if (toUnpack != null && toUnpack.exists() && toUnpack.isFile()) {
-            try {
-                UnArchiver unarchiver = this.archiverManager.getUnArchiver(toUnpack);
-                unarchiver.setSourceFile(toUnpack);
-                unarchiver.setDestDirectory(this.outputDirectory);
-                unarchiver.extract();
-            } catch (Exception ex) {
-                throw new MojoExecutionException("Issue while unarchiving", ex);
-            }
+            UnArchiver unarchiver = this.archiverManager.getUnArchiver(toUnpack);
+            unarchiver.setSourceFile(toUnpack);
+            unarchiver.setDestDirectory(this.outputDirectory);
+            unarchiver.extract();
         }
     }
 
@@ -266,7 +259,7 @@ public class ArtifactMojo extends AbstractMojo {
      * @return The set of dependencies that was dependant.
      */
     private Set<Artifact> resolveDependencies(Artifact artifact) throws ProjectBuildingException {
-        Artifact pomArtifact = artifactFactory.createArtifact(artifact.getGroupId(),
+        final Artifact pomArtifact = artifactFactory.createArtifact(artifact.getGroupId(),
                 artifact.getArtifactId(),
                 artifact.getVersion(),
                 artifact.getClassifier(),
@@ -274,7 +267,7 @@ public class ArtifactMojo extends AbstractMojo {
         if (getLog().isDebugEnabled()) {
             getLog().debug(String.format("Resolving dependencies for artifact %s...", artifact.getId()));
         }
-        ProjectBuildingResult result =
+        final ProjectBuildingResult result =
                 projectBuilder.build( pomArtifact, false,
                         new DefaultProjectBuildingRequest() {{
                             setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
