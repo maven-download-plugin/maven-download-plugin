@@ -17,7 +17,10 @@ package com.googlecode.download.maven.plugin.internal;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.artifact.versioning.InvalidVersionSpecificationException;
+import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.model.building.ModelBuildingRequest;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoFailureException;
@@ -146,8 +149,6 @@ public class ArtifactMojo extends AbstractMojo {
     @Inject
     protected ProjectBuilder projectBuilder;
 
-    private final Set<Artifact> artifacts = new HashSet<Artifact>();
-
     /**
      * Will download the specified artifact in the specified directory.
      * @see org.apache.maven.plugin.Mojo#execute()
@@ -163,9 +164,8 @@ public class ArtifactMojo extends AbstractMojo {
         }
         final Artifact artifact = artifactFactory.createArtifactWithClassifier(groupId, artifactId, version, type, classifier);
         try {
-            downloadAndAddArtifact(artifact, dependencyDepth);
             createOutputDirectoryIfNecessary();
-            for (Artifact copy : this.artifacts) {
+            for (Artifact copy : downloadAndAddArtifact(artifact, dependencyDepth)) {
                 if (this.unpack) {
                     this.unpackFileToDirectory(copy);
                 } else {
@@ -186,17 +186,18 @@ public class ArtifactMojo extends AbstractMojo {
      * @throws ArtifactResolutionException thrown if there are problems during artifact resolution
      * @throws DependencyResolutionException thrown if there are problems during transitive dependency resolution
      */
-    private void downloadAndAddArtifact(Artifact artifact, long maxDepth)
+    private Set<Artifact> downloadAndAddArtifact(Artifact artifact, long maxDepth)
             throws ArtifactResolutionException, DependencyResolutionException, ProjectBuildingException {
-        this.downloadArtifact(artifact);
-        this.artifacts.add(artifact);
-        if (this.dependencyDepth > 0) {
+        final Set<Artifact> artifacts = new HashSet<>();
+        artifacts.add(this.downloadArtifact(artifact));
+        if (maxDepth > 0) {
             final Set<Artifact> dependencies = this.resolveDependencies(artifact);
             getLog().debug("Number of dependencies: " + dependencies.size());
             for (final Artifact dependency : dependencies) {
-                downloadAndAddArtifact(dependency, maxDepth - 1);
+                artifacts.addAll(downloadAndAddArtifact(dependency, maxDepth - 1));
             }
         }
+        return artifacts;
     }
 
     /**
@@ -205,7 +206,7 @@ public class ArtifactMojo extends AbstractMojo {
      * @param artifact The artifact to check if it is present in the local directory.
      * @throws ArtifactResolutionException If an error happen while resolving the artifact.
      */
-    private void downloadArtifact(Artifact artifact) throws ArtifactResolutionException {
+    private Artifact downloadArtifact(Artifact artifact) throws ArtifactResolutionException {
         final ArtifactResult artifactResult = repositorySystem.resolveArtifact(session.getRepositorySession(),
                 new ArtifactRequest(toArtifact(artifact),
                         session.getCurrentProject().getRemoteProjectRepositories(),
@@ -213,6 +214,7 @@ public class ArtifactMojo extends AbstractMojo {
         artifact.setFile(artifactResult.getArtifact().getFile());
         artifact.setVersion(artifactResult.getArtifact().getVersion());
         artifact.setResolved(artifactResult.isResolved());
+        return artifact;
     }
 
     /**
@@ -251,6 +253,19 @@ public class ArtifactMojo extends AbstractMojo {
         }
     }
 
+    private Artifact createDependencyArtifact(Dependency d) {
+        try {
+            return artifactFactory.createDependencyArtifact(d.getGroupId(),
+                    d.getArtifactId(),
+                    VersionRange.createFromVersionSpec(d.getVersion()),
+                    d.getType(),
+                    d.getClassifier(),
+                    d.getScope());
+        } catch (InvalidVersionSpecificationException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Will fetch a list of all the transitive dependencies for an artifact and
      * return a set of those artifacts.
@@ -259,31 +274,15 @@ public class ArtifactMojo extends AbstractMojo {
      * @return The set of dependencies that was dependant.
      */
     private Set<Artifact> resolveDependencies(Artifact artifact) throws ProjectBuildingException {
-        final Artifact pomArtifact = artifactFactory.createArtifact(artifact.getGroupId(),
+        final Artifact pomArtifact = artifactFactory.createProjectArtifact(artifact.getGroupId(),
                 artifact.getArtifactId(),
-                artifact.getVersion(),
-                artifact.getClassifier(),
-                "pom");
+                artifact.getVersion());
         if (getLog().isDebugEnabled()) {
             getLog().debug(String.format("Resolving dependencies for artifact %s...", artifact.getId()));
         }
-        final ProjectBuildingResult result =
-                projectBuilder.build( pomArtifact, false,
-                        new DefaultProjectBuildingRequest() {{
-                            setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
-                            setResolveDependencies(false);
-                            setLocalRepository(session.getLocalRepository());
-                            setRemoteRepositories(session.getCurrentProject().getRemoteArtifactRepositories());
-                            setUserProperties(session.getUserProperties());
-                            setSystemProperties(session.getSystemProperties());
-                            setActiveProfileIds(session.getRequest().getActiveProfiles());
-                            setInactiveProfileIds(session.getRequest().getInactiveProfiles());
-                            setRepositorySession(session.getRepositorySession());
-                            setBuildStartTime(session.getStartTime());
-                        }});
-        return result.getProject().getDependencies().parallelStream()
-                .map(d -> artifactFactory.createArtifact(d.getGroupId(), d.getArtifactId(),
-                        d.getVersion(), d.getType(), d.getScope()))
+        final ProjectBuildingResult result = createProjectBuildingRequest(pomArtifact);
+        return result.getProject().getDependencies().stream()
+                .map(d -> createDependencyArtifact(d))
                 .peek(a -> {
                     try {
                         this.downloadArtifact(a);
@@ -292,5 +291,21 @@ public class ArtifactMojo extends AbstractMojo {
                     }
                 })
                 .collect(Collectors.toSet());
+    }
+
+    private ProjectBuildingResult createProjectBuildingRequest(Artifact pomArtifact) throws ProjectBuildingException {
+        return projectBuilder.build(pomArtifact, false,
+                new DefaultProjectBuildingRequest() {{
+                    setValidationLevel(ModelBuildingRequest.VALIDATION_LEVEL_MINIMAL);
+                    setResolveDependencies(false);
+                    setLocalRepository(session.getLocalRepository());
+                    setRemoteRepositories(session.getCurrentProject().getRemoteArtifactRepositories());
+                    setUserProperties(session.getUserProperties());
+                    setSystemProperties(session.getSystemProperties());
+                    setActiveProfileIds(session.getRequest().getActiveProfiles());
+                    setInactiveProfileIds(session.getRequest().getInactiveProfiles());
+                    setRepositorySession(session.getRepositorySession());
+                    setBuildStartTime(session.getStartTime());
+                }});
     }
 }

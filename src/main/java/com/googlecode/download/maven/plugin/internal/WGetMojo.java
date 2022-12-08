@@ -448,16 +448,24 @@ public class WGetMojo extends AbstractMojo {
                 unarchiver instanceof XZUnArchiver;
     }
 
+    private static RemoteRepository createRemoteRepository(String serverId, URI uri)
+    {
+        return new RemoteRepository.Builder(isBlank(serverId)
+                    ? null
+                    : serverId,
+                isBlank(serverId)
+                    ? uri.getScheme()
+                    : null,
+                isBlank(serverId)
+                    ? uri.getHost()
+                    : null)
+                .build();
+    }
 
     private void doGet(final File outputFile) throws IOException, MojoExecutionException {
         final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
 
-        final RemoteRepository repository = new RemoteRepository.Builder(isBlank(this.serverId)
-            ? null
-            : this.serverId,
-                isBlank(this.serverId) ? this.uri.getScheme() : null,
-                isBlank(this.serverId) ? this.uri.getHost() : null)
-                .build();
+        final RemoteRepository repository = createRemoteRepository(this.serverId, this.uri);
 
         // set proxy if present
         Optional.ofNullable(this.session.getRepositorySession().getProxySelector())

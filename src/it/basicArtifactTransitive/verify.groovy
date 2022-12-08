@@ -1,3 +1,8 @@
-def f = new File(basedir, 'target/javax.annotation-api-1.3.2.jar')
-assert f.exists() : "File $f.absolutePath does not exist"
-assert f.length() > 0 : 'File is empty'
+def verifyFile(fileName) {
+    def file = new File(basedir, "target/${fileName}")
+    assert file.exists() : "File $file.absolutePath does not exist"
+    assert file.size() != 0
+}
+
+verifyFile('dummy-api-1.0.jar')
+verifyFile('dummy-impl-1.0.jar')
