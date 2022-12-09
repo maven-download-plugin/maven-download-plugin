@@ -6,3 +6,6 @@ def verifyFile(fileName) {
 
 verifyFile('dummy-api-1.0.jar')
 verifyFile('dummy-impl-1.0.jar')
+
+// only up to 1-level dependencies should be downloaded
+assert !( new File(basedir, 'target/dummy-dependency-1.0.jar').exists() )

@@ -4,15 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>localhost</groupId>
-  <artifactId>dummy-api</artifactId>
+  <artifactId>dummy-dependency</artifactId>
   <version>1.0</version>
-
-  <dependencies>
-    <dependency>
-      <groupId>localhost</groupId>
-      <artifactId>dummy-dependency</artifactId>
-      <version>1.0</version>
-    </dependency>
-  </dependencies>
 
 </project>
