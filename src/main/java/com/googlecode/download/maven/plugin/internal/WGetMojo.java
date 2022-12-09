@@ -469,11 +469,11 @@ public class WGetMojo extends AbstractMojo {
 
         // set proxy if present
         Optional.ofNullable(this.session.getRepositorySession().getProxySelector())
-                .flatMap(selector -> Optional.ofNullable(selector.getProxy(repository)))
+                .map(selector -> selector.getProxy(repository))
                 .ifPresent(proxy -> addProxy(fileRequesterBuilder, repository, proxy));
 
         Optional.ofNullable(this.session.getRepositorySession().getAuthenticationSelector())
-                .flatMap(selector -> Optional.ofNullable(selector.getAuthentication(repository)))
+                .map(selector -> selector.getAuthentication(repository))
                 .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
 
         if (!this.skipCache) {
