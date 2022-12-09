@@ -64,6 +64,10 @@ It provides caching and checksum verification.
 </plugin>
 ```
 
+## Requirements
+
+Starting from version 1.6.9, the plugin requires Maven version 3 or above.
+
 ## Known issues and workarounds
 
 ### IO Error: No such archiver
