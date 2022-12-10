@@ -22,6 +22,14 @@ under the License.
 	xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.1.0 http://maven.apache.org/xsd/settings-1.1.0.xsd"
 	xmlns="http://maven.apache.org/SETTINGS/1.1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
+	<mirrors>
+		<mirror>
+			<id>mrm-maven-plugin</id>
+			<name>Mock Repository Manager</name>
+			<url>@mrm.repository.url@</url>
+			<mirrorOf>*</mirrorOf>
+		</mirror>
+	</mirrors>
 	<servers>
 		<server>
 			<id>y</id>
@@ -37,24 +45,32 @@ under the License.
 			<repositories>
 				<repository>
 					<id>local.central</id>
-					<url>@localRepositoryUrl@</url>
+					<url>@mrm.repository.url@</url>
 					<releases>
 						<enabled>true</enabled>
+						<checksumPolicy>ignore</checksumPolicy>
+						<updatePolicy>never</updatePolicy>
 					</releases>
 					<snapshots>
 						<enabled>true</enabled>
+						<checksumPolicy>ignore</checksumPolicy>
+						<updatePolicy>always</updatePolicy>
 					</snapshots>
 				</repository>
 			</repositories>
 			<pluginRepositories>
 				<pluginRepository>
 					<id>local.central</id>
-					<url>@localRepositoryUrl@</url>
+					<url>@mrm.repository.url@</url>
 					<releases>
 						<enabled>true</enabled>
+						<checksumPolicy>ignore</checksumPolicy>
+						<updatePolicy>never</updatePolicy>
 					</releases>
 					<snapshots>
 						<enabled>true</enabled>
+						<checksumPolicy>ignore</checksumPolicy>
+						<updatePolicy>always</updatePolicy>
 					</snapshots>
 				</pluginRepository>
 			</pluginRepositories>

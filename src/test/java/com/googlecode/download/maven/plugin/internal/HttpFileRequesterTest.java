@@ -10,7 +10,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
 import java.io.File;
 import java.net.URI;
@@ -57,7 +56,6 @@ public class HttpFileRequesterTest {
                 .withConnectTimeout(3000)
                 .withSocketTimeout(3000)
                 .withUri(new URI(this.wireMock.baseUrl()))
-                .withSecDispatcher(mock(SecDispatcher.class))
                 .withRedirectsEnabled(false)
                 .withPreemptiveAuth(false)
                 .withCacheDir(null)

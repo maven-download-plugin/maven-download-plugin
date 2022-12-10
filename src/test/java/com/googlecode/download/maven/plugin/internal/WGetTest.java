@@ -8,13 +8,12 @@ import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestExecutor;
-import org.apache.maven.artifact.manager.WagonManager;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.Mojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
-import org.apache.maven.settings.Settings;
+import org.codehaus.plexus.util.ReflectionUtils;
+import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -22,11 +21,11 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
-import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
@@ -47,7 +46,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Unit tests for {@link WGet}
+ * Unit tests for {@link WGetMojo}
  *
  * @author Andrzej Jarmoniuk
  */
@@ -70,28 +69,27 @@ public class WGetTest {
         temporaryFolder.delete();
     }
 
-    private <T, M extends Mojo> void setVariableValueToObject(M mojo, String variable, T value) {
+    private <T> void setVariableValueToObject(Object object, String variable, T value) {
         try {
-            org.apache.maven.plugin.testing.ArtifactStubFactory.setVariableValueToObject(mojo, variable, value);
+            Field field = ReflectionUtils.getFieldByNameIncludingSuperclasses(variable, object.getClass());
+            field.setAccessible(true);
+            field.set(object, value);
         } catch (IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private WGet createMojo(Consumer<WGet> initializer) {
-        WGet mojo = new WGet();
+    private WGetMojo createMojo(Consumer<WGetMojo> initializer) {
+        WGetMojo mojo = new WGetMojo();
         BuildContext buildContext = mock(BuildContext.class);
         doNothing().when(buildContext).refresh(any(File.class));
 
         setVariableValueToObject(mojo, "outputFileName", OUTPUT_FILE_NAME);
         setVariableValueToObject(mojo, "outputDirectory", outputDirectory.toFile());
         setVariableValueToObject(mojo, "cacheDirectory", cacheDirectory.toFile());
-        setVariableValueToObject(mojo, "wagonManager", mock(WagonManager.class));
         setVariableValueToObject(mojo, "retries", 1);
-        setVariableValueToObject(mojo, "settings", new Settings());
         setVariableValueToObject(mojo, "buildContext", buildContext);
         setVariableValueToObject(mojo, "overwrite", true);
-        setVariableValueToObject(mojo, "securityDispatcher", mock(SecDispatcher.class));
         try {
             setVariableValueToObject(mojo, "uri", new URI(
                     "http://test"));
@@ -102,6 +100,9 @@ public class WGetTest {
             @SuppressWarnings("deprecation")
             MavenSessionStub() {
                 super(null, mock(MavenExecutionRequest.class), null, new LinkedList<>());
+                final DefaultRepositorySystemSession repositorySystemSession = new DefaultRepositorySystemSession();
+                repositorySystemSession.setOffline(true);
+                setVariableValueToObject(this, "repositorySession", repositorySystemSession);
             }
         }
         setVariableValueToObject(mojo, "session", new MavenSessionStub());
@@ -169,7 +170,7 @@ public class WGetTest {
     }
 
     /**
-     * Verifies that the cache directory should remain empty if the {@linkplain WGet#execute()} execution
+     * Verifies that the cache directory should remain empty if the {@linkplain WGetMojo#execute()} execution
      * ended abruptly. Does so by keeping {@code wagonManager} {@code null}. As it's being dereferenced,
      * an NPE is raised.
      *
@@ -178,9 +179,14 @@ public class WGetTest {
     @Test
     public void testCacheNotWrittenToIfFailed() throws Exception {
         try {
-            createMojo(mojo -> setVariableValueToObject(mojo, "wagonManager", null)).execute();
+            WGetMojo mojo = createMojo(ignored -> {
+                return;
+            });
+            // inject null value so that we get a NullPointerException thrown
+            setVariableValueToObject(mojo, "session", null);
+            mojo.execute();
             fail();
-        } catch (MojoExecutionException e) {
+        } catch (NullPointerException e) {
             // expected, but can be ignored
         } finally {
             assertThat("Cache directory should remain empty if quit abruptly", cacheDirectory.toFile().list(),
@@ -232,11 +238,11 @@ public class WGetTest {
     public void testCacheRetainingValuesFromTwoConcurrentCalls() throws Exception {
         final URI firstMojoUri = URI.create("http://test/foo");
         final URI secondMojoUri = URI.create("http://test/bar");
-        WGet firstMojo = createMojo(mojo -> {
+        WGetMojo firstMojo = createMojo(mojo -> {
             setVariableValueToObject(mojo, "uri", firstMojoUri);
             setVariableValueToObject(mojo, "outputFileName", OUTPUT_FILE_NAME);
         });
-        WGet secondMojo = createMojo(mojo -> {
+        WGetMojo secondMojo = createMojo(mojo -> {
             setVariableValueToObject(mojo, "uri", secondMojoUri);
             setVariableValueToObject(mojo, "outputFileName", "second-output-file");
         });
