@@ -22,7 +22,7 @@
 							<goal>wget</goal>
 						</goals>
 						<configuration>
-							<url>https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.zip</url>
+							<url>https://dlcdn.apache.org/maven/maven-3/3.8.7/binaries/apache-maven-3.8.7-bin.zip</url>
 							<unpack>true</unpack>
 						</configuration>
 					</execution>
