@@ -227,6 +227,12 @@ public class WGetMojo extends AbstractMojo {
     @Parameter(property = "download.plugin.headers")
     private Map<String, String> headers = new HashMap<>();
 
+    /**
+     * If true, will suppress extra logging even when the maven session is in interactive mode
+     */
+    @Parameter(defaultValue = "false")
+    private boolean quiet;
+
     @Parameter(property = "session", readonly = true)
     private MavenSession session;
 
@@ -481,7 +487,7 @@ public class WGetMojo extends AbstractMojo {
         }
 
         final HttpFileRequester fileRequester = fileRequesterBuilder
-                .withProgressReport(this.session.getSettings().isInteractiveMode()
+                .withProgressReport(!quiet && this.session.getSettings().isInteractiveMode()
                         ? new LoggingProgressReport(this.getLog())
                         : new SilentProgressReport(this.getLog()))
                 .withConnectTimeout(this.readTimeOut)
