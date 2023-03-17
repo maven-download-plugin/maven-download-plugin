@@ -275,6 +275,14 @@ public class WGetMojo extends AbstractMojo {
     private boolean preemptiveAuth;
 
     /**
+     * If {@code true}, it will turn off any verification of the SSL certificate
+     *
+     * @since 1.6.9
+     */
+    @Parameter(property = "insecure", defaultValue = "false")
+    private boolean insecure;
+
+    /**
      * Method call when the mojo is executed for the first time.
      *
      * @throws MojoExecutionException if an error is occuring in this mojo.
@@ -494,6 +502,7 @@ public class WGetMojo extends AbstractMojo {
                 .withMavenSession(this.session)
                 .withRedirectsEnabled(this.followRedirects)
                 .withLog(this.getLog())
+                .withInsecure(this.insecure)
                 .build();
         fileRequester.download(outputFile, getAdditionalHeaders());
     }

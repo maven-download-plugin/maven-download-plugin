@@ -30,6 +30,8 @@ import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.TrustAllStrategy;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicAuthCache;
 import org.apache.http.impl.client.BasicCredentialsProvider;
@@ -39,6 +41,7 @@ import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
 import org.apache.http.impl.client.cache.CachingHttpClients;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
@@ -74,6 +77,7 @@ public class HttpFileRequester {
     private boolean redirectsEnabled;
     private URI uri;
     private boolean preemptiveAuth;
+    private boolean insecure;
 
     private HttpFileRequester() {
     }
@@ -97,6 +101,7 @@ public class HttpFileRequester {
         private boolean redirectsEnabled;
         private MavenSession mavenSession;
         private boolean preemptiveAuth;
+        private boolean insecure;
 
         public Builder withUri(URI uri) {
             this.uri = uri;
@@ -188,6 +193,11 @@ public class HttpFileRequester {
             return this;
         }
 
+        public Builder withInsecure(boolean insecure) {
+            this.insecure = insecure;
+            return this;
+        }
+
         public HttpFileRequester build() throws MojoExecutionException {
             final HttpFileRequester instance = new HttpFileRequester();
             instance.uri = requireNonNull(this.uri);
@@ -198,6 +208,7 @@ public class HttpFileRequester {
             instance.redirectsEnabled = this.redirectsEnabled;
             instance.preemptiveAuth = this.preemptiveAuth;
             instance.log = requireNonNull(this.log);
+            instance.insecure = this.insecure;
 
             requireNonNull(this.mavenSession);
 
@@ -327,8 +338,19 @@ public class HttpFileRequester {
                 (CachingHttpClientBuilder) CachingHttpClients.custom()
                         .setDefaultCredentialsProvider(this.credentialsProvider)
                         .setRoutePlanner(routePlanner)
-                        .setDefaultRequestConfig(requestConfig)
-                ;
+                        .setDefaultRequestConfig(requestConfig);
+        if (insecure) {
+            try {
+                httpClientBuilder.setSSLContext(
+                        new SSLContextBuilder()
+                            .loadTrustMaterial(null, TrustAllStrategy.INSTANCE)
+                            .build())
+                    .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+            } catch (Exception cantHappen) {
+                throw new RuntimeException(cantHappen);
+            }
+        }
+
         if (cacheDir != null) {
             CacheConfig config = CacheConfig.custom()
                     .setHeuristicDefaultLifetime(HEURISTIC_DEFAULT_LIFETIME)

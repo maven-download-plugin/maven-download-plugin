@@ -1,6 +1,7 @@
 package com.googlecode.download.maven.plugin.internal;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import javax.net.ssl.SSLHandshakeException;
 import org.apache.http.auth.AUTH;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
@@ -22,6 +23,7 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -33,7 +35,7 @@ public class HttpFileRequesterTest {
     @Rule
     public TemporaryFolder outputDirectory = new TemporaryFolder();
     @Rule
-    public WireMockRule wireMock = new WireMockRule(options().dynamicPort());
+    public WireMockRule wireMock = new WireMockRule(options().dynamicPort().dynamicHttpsPort());
     private File outputFile;
     private final static Log LOG = new SystemStreamLog();
     private final static String OUTPUT_FILE_NAME = "output-file";
@@ -55,7 +57,7 @@ public class HttpFileRequesterTest {
                 .withProgressReport(new LoggingProgressReport(LOG))
                 .withConnectTimeout(3000)
                 .withSocketTimeout(3000)
-                .withUri(new URI(this.wireMock.baseUrl()))
+                .withUri(new URI("http://localhost:" + this.wireMock.port()))
                 .withRedirectsEnabled(false)
                 .withPreemptiveAuth(false)
                 .withCacheDir(null)
@@ -79,6 +81,35 @@ public class HttpFileRequesterTest {
 
         assertThat(String.join("", Files.readAllLines(this.outputFile.toPath())),
                 is("Hello, world!"));
+    }
+
+    @Test
+    public void testInsecureSSL()
+        throws Exception {
+        this.wireMock.stubFor(get(anyUrl())
+            .willReturn(ok().withBody("Feeling insecure, huh?")));
+
+        createFileRequesterBuilder()
+            .withInsecure(true)
+            .withUri(new URI("https://localhost:" + wireMock.httpsPort()))
+            .build()
+            .download(this.outputFile, emptyList());
+
+        assertThat(String.join("", Files.readAllLines(this.outputFile.toPath())),
+            is("Feeling insecure, huh?"));
+    }
+    @Test
+    public void testSecuredSSL() {
+        this.wireMock.stubFor(get(anyUrl())
+            .willReturn(ok().withBody("Feeling secured!")));
+
+        assertThrows(SSLHandshakeException.class, ()->{
+            createFileRequesterBuilder()
+                .withInsecure(false)
+                .withUri(new URI("https://localhost:" + wireMock.httpsPort()))
+                .build()
+                .download(this.outputFile, emptyList());
+        });
     }
 
     /**
