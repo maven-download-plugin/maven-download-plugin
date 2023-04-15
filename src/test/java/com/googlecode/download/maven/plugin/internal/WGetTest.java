@@ -624,4 +624,66 @@ public class WGetTest {
             }
         });
     }
+
+    /**
+     * Plugin execution should fail if a non-200 code was returned by the resource being downloaded.
+     */
+    @Test
+    public void testBuildShouldFailIfDownloadFails() {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(forbidden()));
+        try {
+            createMojo(m -> {
+                setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                setVariableValueToObject(m, "skipCache", true);
+                setVariableValueToObject(m, "failOnError", true);
+            }).execute();
+            fail("The mojo should have failed upon error");
+        } catch (Exception e) {
+            assertThat(e, is(instanceOf(MojoExecutionException.class)));
+            assertThat(e.getCause(), is(instanceOf(DownloadFailureException.class)));
+            assertThat(((DownloadFailureException) e.getCause()).getHttpCode(), is(HttpStatus.SC_FORBIDDEN));
+        }
+    }
+
+    /**
+     * Plugin execution should fail only after all retries have been exhausted
+     * if a 500+ code was returned by the resource being downloaded.
+     */
+    @Test
+    public void testRetriedAfterDownloadFailsWithCode500() {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(serverError()));
+        try {
+            createMojo(m -> {
+                setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                setVariableValueToObject(m, "skipCache", true);
+                setVariableValueToObject(m, "failOnError", true);
+                setVariableValueToObject(m, "retries", 3);
+            }).execute();
+            fail("The mojo should have failed upon error");
+        } catch (Exception e) {
+            assertThat(e, is(instanceOf(MojoExecutionException.class)));
+            verify(3, getRequestedFor(anyUrl()));
+        }
+    }
+
+    /**
+     * Plugin should ignore a download failure if instructed to do so.
+     */
+    @Test
+    public void testIgnoreDownloadFailure()
+            throws MojoExecutionException, MojoFailureException {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(forbidden()));
+        try {
+            createMojo(m -> {
+                setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                setVariableValueToObject(m, "skipCache", true);
+                setVariableValueToObject(m, "failOnError", false);
+            }).execute();
+        } catch (MojoExecutionException e) {
+            if (e.getCause() instanceof DownloadFailureException) {
+                fail("Plugin should ignore a download failure");
+            }
+            throw e;
+        }
+    }
 }

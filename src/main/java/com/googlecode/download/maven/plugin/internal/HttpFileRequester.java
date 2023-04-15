@@ -254,7 +254,7 @@ public class HttpFileRequester {
      * @param outputFile the output file
      * @param headers list of headers
      */
-    public void download(final File outputFile, List<Header> headers) throws IOException {
+    public void download(final File outputFile, List<Header> headers) throws IOException, DownloadFailureException {
         final CachingHttpClientBuilder httpClientBuilder = createHttpClientBuilder();
         try (final CloseableHttpClient httpClient = httpClientBuilder.build()) {
             final HttpCacheContext clientContext = HttpCacheContext.create();
@@ -266,10 +266,31 @@ public class HttpFileRequester {
                 clientContext.setAuthCache(authCache);
             }
 
+            /*
+             * Container to pass a checked exception from within the closure
+             */
+            class RuntimeDownloadFailureException extends RuntimeException {
+                public RuntimeDownloadFailureException(DownloadFailureException cause) {
+                    super(cause);
+                }
+            }
+
             final HttpGet httpGet = new HttpGet(this.uri);
             headers.forEach(httpGet::setHeader);
-            httpClient.execute(httpGet, response ->
-                    handleResponse(this.uri, outputFile, clientContext, response), clientContext);
+            try {
+                httpClient.execute(httpGet, response ->
+                {
+                    try {
+                        return handleResponse(this.uri, outputFile, clientContext, response);
+                    } catch (DownloadFailureException e) {
+                        throw new RuntimeDownloadFailureException(e);
+                    }
+                }, clientContext);
+            } catch (RuntimeDownloadFailureException e) {
+                if (e.getCause() instanceof DownloadFailureException) {
+                    throw (DownloadFailureException) e.getCause();
+                }
+            }
         }
     }
 
@@ -283,8 +304,11 @@ public class HttpFileRequester {
      * @throws IOException thrown if I/O operations don't succeed
      */
     private Object handleResponse( URI uri, File outputFile, HttpCacheContext clientContext, HttpResponse response )
-            throws IOException
-    {
+            throws IOException, DownloadFailureException {
+        if (response.getStatusLine().getStatusCode() >= 300) {
+            throw new DownloadFailureException(response.getStatusLine().getStatusCode(),
+                    response.getStatusLine().getReasonPhrase());
+        }
         final HttpEntity entity = response.getEntity();
         if (entity != null) {
             switch ( clientContext.getCacheResponseStatus()) {
