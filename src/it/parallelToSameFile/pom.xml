@@ -16,29 +16,31 @@
     </modules>
 
     <!-- Build plugins and extensions -->
+
     <build>
-        <plugins>
-            <plugin>
-                <groupId>@project.groupId@</groupId>
-                <artifactId>@project.artifactId@</artifactId>
-                <version>@project.version@</version>
-                <executions>
-                    <execution>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>wget</goal>
-                        </goals>
-                        <configuration>
-                            <url>${test.img.file.url}</url>
-                            <outputFileName>test.jpg</outputFileName>
-                            <outputDirectory>${maven.multiModuleProjectDirectory}/target</outputDirectory>
-                            <skipCache>true</skipCache>
-                            <failOnError>false</failOnError>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>@project.groupId@</groupId>
+                    <artifactId>@project.artifactId@</artifactId>
+                    <version>@project.version@</version>
+                    <executions>
+                        <execution>
+                            <phase>generate-resources</phase>
+                            <goals>
+                                <goal>wget</goal>
+                            </goals>
+                            <configuration>
+                                <url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.pom</url>
+                                <outputDirectory>${project.basedir}/../target</outputDirectory>
+                                <skipCache>true</skipCache>
+                                <failOnError>false</failOnError>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 
 </project>
