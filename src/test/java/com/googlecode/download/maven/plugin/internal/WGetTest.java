@@ -627,6 +627,7 @@ public class WGetTest {
 
     /**
      * Plugin execution should fail if code >= 400 was returned by the resource being downloaded.
+     * It should not repeat the query.
      */
     @Test
     public void testBuildShouldFailIfDownloadFails() {
@@ -649,6 +650,7 @@ public class WGetTest {
     /**
      * Plugin execution should fail only after all retries have been exhausted
      * if a 500+ code was returned by the resource being downloaded.
+     * It should repeat the query exactly 3 times.
      */
     @Test
     public void testRetriedAfterDownloadFailsWithCode500() {
@@ -668,7 +670,7 @@ public class WGetTest {
     }
 
     /**
-     * Plugin should ignore a download failure if instructed to do so.
+     * Plugin should ignore a download failure if instructed to do so. It should not repeat the query.
      */
     @Test
     public void testIgnoreDownloadFailure()
