@@ -36,6 +36,6 @@ public class DownloadFailureException extends Exception {
 
     @Override
     public String getMessage() {
-        return "Download failed with code " + statusCode + ": " + statusLine;
+        return "Download failed with code " + getHttpCode() + ": " + getStatusLine();
     }
 }

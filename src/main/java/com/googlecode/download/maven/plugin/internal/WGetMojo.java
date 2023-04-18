@@ -331,22 +331,22 @@ public class WGetMojo extends AbstractMojo {
         this.outputDirectory.mkdirs();
         final File outputFile = new File(this.outputDirectory, this.outputFileName);
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
-                outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
+            outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
         );
 
         final Checksums checksums = new Checksums(
-                this.md5, this.sha1, this.sha256, this.sha512, this.getLog()
+            this.md5, this.sha1, this.sha256, this.sha512, this.getLog()
         );
         // DO
         boolean lockAcquired = false;
         try {
             lockAcquired = fileLock.tryLock(
-                    this.maxLockWaitTime, TimeUnit.MILLISECONDS
+                this.maxLockWaitTime, TimeUnit.MILLISECONDS
             );
             if (!lockAcquired) {
                 final String message = String.format(
-                        "Could not acquire lock for File: %s in %dms",
-                        outputFile, this.maxLockWaitTime
+                    "Could not acquire lock for File: %s in %dms",
+                    outputFile, this.maxLockWaitTime
                 );
                 if (this.failOnError) {
                     throw new MojoExecutionException(message);
@@ -384,28 +384,29 @@ public class WGetMojo extends AbstractMojo {
                         getLog().warn("Ignoring download failure.");
                     }
                 }
-
                 boolean done = false;
-                for (int retriesLeft = this.retries; !done && retriesLeft > 0; --retriesLeft) {
+                for (int retriesLeft = this.retries; retriesLeft > 0; --retriesLeft) {
                     try {
                         this.doGet(outputFile);
                         checksums.validate(outputFile);
                         done = true;
                     } catch (DownloadFailureException ex) {
-
-                        if (ex.getHttpCode() >= 500) {
-                            getLog().warn(ex.getMessage());
+                        // treating HTTP codes >= 500 as transient and thus always retriable
+                        if (this.failOnError && ex.getHttpCode() < 500) {
+                            throw new MojoExecutionException(ex.getMessage(), ex);
                         } else {
-                            if (this.failOnError) {
-                                throw new MojoExecutionException(ex.getMessage(), ex);
-                            } else {
-                                getLog().warn(ex.getMessage());
-                            }
+                            getLog().warn(ex.getMessage());
                         }
                     } catch (IOException ex) {
-                        getLog().warn("Could not get content", ex);
+                        if (this.failOnError) {
+                            throw new MojoExecutionException(ex.getMessage(), ex);
+                        } else {
+                            getLog().warn(ex.getMessage());
+                        }
                     }
-                    getLog().warn("Retrying (" + (retriesLeft-1) + " more)");
+                    if (!done) {
+                        getLog().warn("Retrying (" + (retriesLeft - 1) + " more)");
+                    }
                 }
                 if (!done) {
                     if (this.failOnError) {
@@ -420,7 +421,7 @@ public class WGetMojo extends AbstractMojo {
                 unpack(outputFile);
                 this.buildContext.refresh(this.outputDirectory);
             } else {
-                this.buildContext.refresh(outputFile);
+            	this.buildContext.refresh(outputFile);
             }
         } catch (MojoExecutionException e) {
             throw e;

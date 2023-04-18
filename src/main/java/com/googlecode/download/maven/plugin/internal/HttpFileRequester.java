@@ -305,7 +305,7 @@ public class HttpFileRequester {
      */
     private Object handleResponse( URI uri, File outputFile, HttpCacheContext clientContext, HttpResponse response )
             throws IOException, DownloadFailureException {
-        if (response.getStatusLine().getStatusCode() >= 300) {
+        if (response.getStatusLine().getStatusCode() >= 400) {
             throw new DownloadFailureException(response.getStatusLine().getStatusCode(),
                     response.getStatusLine().getReasonPhrase());
         }

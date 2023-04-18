@@ -642,6 +642,7 @@ public class WGetTest {
             assertThat(e, is(instanceOf(MojoExecutionException.class)));
             assertThat(e.getCause(), is(instanceOf(DownloadFailureException.class)));
             assertThat(((DownloadFailureException) e.getCause()).getHttpCode(), is(HttpStatus.SC_FORBIDDEN));
+            verify(1, getRequestedFor(anyUrl()));
         }
     }
 
@@ -679,6 +680,7 @@ public class WGetTest {
                 setVariableValueToObject(m, "skipCache", true);
                 setVariableValueToObject(m, "failOnError", false);
             }).execute();
+            verify(1, getRequestedFor(anyUrl()));
         } catch (MojoExecutionException e) {
             if (e.getCause() instanceof DownloadFailureException) {
                 fail("Plugin should ignore a download failure");
