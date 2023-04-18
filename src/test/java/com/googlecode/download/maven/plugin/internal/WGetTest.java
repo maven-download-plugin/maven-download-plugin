@@ -626,7 +626,7 @@ public class WGetTest {
     }
 
     /**
-     * Plugin execution should fail if a non-200 code was returned by the resource being downloaded.
+     * Plugin execution should fail if code >= 400 was returned by the resource being downloaded.
      */
     @Test
     public void testBuildShouldFailIfDownloadFails() {
