@@ -8,7 +8,7 @@ public class DownloadFailureException extends Exception {
 
     private final int statusCode;
 
-    private String statusLine;
+    private final String statusLine;
 
     /**
      * @return the HTTP status code.
