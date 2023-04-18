@@ -6,7 +6,7 @@ package com.googlecode.download.maven.plugin.internal;
  */
 public class DownloadFailureException extends Exception {
 
-    private int statusCode;
+    private final int statusCode;
 
     private String statusLine;
 
