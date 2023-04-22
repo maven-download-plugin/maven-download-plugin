@@ -166,11 +166,6 @@
 									<filterProperties>
 										<mrm.repository.url>${mrm.repository.url}</mrm.repository.url>
 									</filterProperties>
-									<pomExcludes>
-										<!-- Issue #242: apparently, compatibility with cache from version 1.3.0
-										is lost in version 1.6.9 -->
-										<pomExclude>indexRetroCompatibility/pom.xml</pomExclude>
-									</pomExcludes>
 								</configuration>
 							</execution>
 						</executions>
