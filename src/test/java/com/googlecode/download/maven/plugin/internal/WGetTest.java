@@ -583,7 +583,7 @@ public class WGetTest {
     }
 
     /**
-     * Testing {@code alwaysVerifySignature} with an already existing file. The plugin, if provided the {@code md5},
+     * Testing {@code alwaysVerifyChecksum} with an already existing file. The plugin, if provided the {@code md5},
      * @code sha1}, {@code sha256}, {@code sha512} parameters, should log a warning message if the signature
      * of the existing file is incorrect.
      */
