@@ -22,7 +22,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
@@ -57,7 +56,7 @@ import static org.mockito.Mockito.*;
  *
  * @author Andrzej Jarmoniuk
  */
-public class WGetTest {
+public class WGetMojoTest {
     @Rule
     public WireMockRule wireMock = new WireMockRule(options().dynamicPort());
     @Rule
