@@ -22,7 +22,7 @@
 							<goal>wget</goal>
 						</goals>
 						<configuration>
-							<url>https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.zip</url>
+							<url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.jar</url>
 							<unpack>true</unpack>
 						</configuration>
 					</execution>

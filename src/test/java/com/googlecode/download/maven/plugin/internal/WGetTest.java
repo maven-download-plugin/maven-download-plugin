@@ -1,5 +1,6 @@
 package com.googlecode.download.maven.plugin.internal;
 
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.apache.http.*;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.entity.StringEntity;
@@ -12,6 +13,8 @@ import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugin.logging.Log;
+import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.codehaus.plexus.util.ReflectionUtils;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.junit.After;
@@ -19,6 +22,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
@@ -30,14 +34,17 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.Map;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -52,6 +59,8 @@ import static org.mockito.Mockito.*;
  */
 public class WGetTest {
     @Rule
+    public WireMockRule wireMock = new WireMockRule(options().dynamicPort());
+    @Rule
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
     private Path cacheDirectory;
     private final static String OUTPUT_FILE_NAME = "output-file";
@@ -60,8 +69,8 @@ public class WGetTest {
     @Before
     public void setUp() throws Exception {
         temporaryFolder.create();
-        cacheDirectory = temporaryFolder.newFolder("wget-test-cache-").toPath();
-        outputDirectory = temporaryFolder.newFolder("wget-test-").toPath();
+        cacheDirectory = temporaryFolder.newFolder("wget-test-cache").toPath();
+        outputDirectory = temporaryFolder.newFolder("wget-test").toPath();
     }
 
     @After
@@ -101,7 +110,7 @@ public class WGetTest {
             MavenSessionStub() {
                 super(null, mock(MavenExecutionRequest.class), null, new LinkedList<>());
                 final DefaultRepositorySystemSession repositorySystemSession = new DefaultRepositorySystemSession();
-                repositorySystemSession.setOffline(true);
+                repositorySystemSession.setOffline(false);
                 setVariableValueToObject(this, "repositorySession", repositorySystemSession);
             }
         }
@@ -111,13 +120,34 @@ public class WGetTest {
         return mojo;
     }
 
+    private static CachingHttpClientBuilder createClientBuilder(Supplier<String> contentSupplier) {
+        // mock client builder
+        CachingHttpClientBuilder clientBuilder = CachingHttpClientBuilder.create();
+        clientBuilder.setConnectionManager(new BasicHttpClientConnectionManager() {
+            @Override
+            public void connect(HttpClientConnection conn, HttpRoute route, int connectTimeout, HttpContext context) {
+            }
+        });
+        clientBuilder.setRequestExecutor(new HttpRequestExecutor() {
+            @Override
+            protected HttpResponse doSendRequest(HttpRequest request, HttpClientConnection conn, HttpContext context)
+                    throws IOException {
+                HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "Ok");
+                response.setEntity(new StringEntity(contentSupplier.get() + "\n"));
+                return response;
+            }
+        });
+
+        return clientBuilder;
+    }
+
     /**
      * Verifies the cache is not used if {@code skipCache} is {@code true}
      */
     @Test
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public void testCacheDirectoryNotCreated()
             throws MojoExecutionException, MojoFailureException {
+
         CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
         try (MockedStatic<CachingHttpClientBuilder> httpClientBuilder = mockStatic(CachingHttpClientBuilder.class)) {
             httpClientBuilder.when(CachingHttpClientBuilder::create).thenReturn(clientBuilder);
@@ -133,7 +163,6 @@ public class WGetTest {
      * @throws Exception should any exception be thrown
      */
     @Test
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public void testCacheInANonExistingDirectory() throws Exception {
         Path cacheDir = this.cacheDirectory.resolve("cache/dir");
         CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
@@ -201,7 +230,6 @@ public class WGetTest {
      * @throws Exception should any exception be thrown
      */
     @Test
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public void testReadingFromCache() throws Exception {
         CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
 
@@ -234,7 +262,6 @@ public class WGetTest {
      * @throws Exception should any exception be thrown
      */
     @Test
-    @SuppressWarnings("ResultOfMethodCallIgnored")
     public void testCacheRetainingValuesFromTwoConcurrentCalls() throws Exception {
         final URI firstMojoUri = URI.create("http://test/foo");
         final URI secondMojoUri = URI.create("http://test/bar");
@@ -295,24 +322,306 @@ public class WGetTest {
         }
     }
 
-    private static CachingHttpClientBuilder createClientBuilder(Supplier<String> contentSupplier) {
-        // mock client builder
-        CachingHttpClientBuilder clientBuilder = CachingHttpClientBuilder.create();
-        clientBuilder.setConnectionManager(new BasicHttpClientConnectionManager() {
-            @Override
-            public void connect(HttpClientConnection conn, HttpRoute route, int connectTimeout, HttpContext context) {
-            }
-        });
-        clientBuilder.setRequestExecutor(new HttpRequestExecutor() {
-            @Override
-            protected HttpResponse doSendRequest(HttpRequest request, HttpClientConnection conn, HttpContext context)
-                    throws IOException {
-                HttpResponse response = new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "Ok");
-                response.setEntity(new StringEntity(contentSupplier.get() + "\n"));
-                return response;
-            }
-        });
+    /**
+     * The plugin should echo headers given in the {@code headers} parameter to the resource.
+     */
+    @Test
+    public void testCustomHeaders() throws MojoExecutionException, MojoFailureException {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(serverError()));
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "headers", new HashMap<String, String>() {{
+                put("X-Custom-1", "first custom header");
+                put("X-Custom-2", "second custom header");
+            }});
+        }).execute();
+        verify(getRequestedFor(anyUrl())
+                .withHeader("X-Custom-1", equalTo("first custom header"))
+                .withHeader("X-Custom-2", equalTo("second custom header")));
+    }
 
-        return clientBuilder;
+    /**
+     * The plugin should pass query parameters in the URL to the resource
+     */
+    @Test
+    public void testQuery() throws MojoExecutionException, MojoFailureException {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(serverError()));
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl() + "?query=value"));
+            setVariableValueToObject(m, "skipCache", true);
+        }).execute();
+        verify(getRequestedFor(anyUrl())
+                .withQueryParam("query", equalTo("value")));
+    }
+
+    /**
+     * The plugin should follow temporary redirects
+     */
+    @Test
+    public void testTemporaryRedirect() throws MojoExecutionException, MojoFailureException {
+        this.wireMock
+                .stubFor(get(urlEqualTo("/old"))
+                .willReturn(temporaryRedirect("/new")));
+        this.wireMock
+                .stubFor(get(urlEqualTo("/new"))
+                        .willReturn(serverError()));
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.url("/old")));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "followRedirects", true);
+        }).execute();
+        verify(getRequestedFor(urlEqualTo("/old")));
+        verify(getRequestedFor(urlEqualTo("/new")));
+    }
+
+    /**
+     * The plugin should follow permanent redirects
+     */
+    @Test
+    public void testPermanentRedirect() throws MojoExecutionException, MojoFailureException {
+        this.wireMock
+                .stubFor(get(urlEqualTo("/old"))
+                        .willReturn(permanentRedirect("/new")));
+        this.wireMock
+                .stubFor(get(urlEqualTo("/new"))
+                        .willReturn(serverError()));
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.url("/old")));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "followRedirects", true);
+        }).execute();
+        verify(getRequestedFor(urlEqualTo("/old")));
+        verify(getRequestedFor(urlEqualTo("/new")));
+    }
+
+    /**
+     * The plugin should always overwrite the output file (even if it has the same content) if {@code overwrite}
+     * is {@code true}.
+     */
+    @Test
+    public void testAlwaysOverwrite() throws MojoExecutionException, MojoFailureException, IOException, InterruptedException {
+        this.wireMock
+                .stubFor(get(anyUrl()).willReturn(ok("Hello")));
+
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "overwrite", true);
+            setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+        }).execute();
+
+        assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                is("Hello"));
+
+        final Path outputPath = outputDirectory.resolve(OUTPUT_FILE_NAME);
+        final FileTime firstModificationTime = Files.getLastModifiedTime(outputPath);
+
+        // apparently, Files.getLastModificationTime only offers a resolution up to seconds with Java 8
+        // see https://stackoverflow.com/questions/24804618/get-file-mtime-with-millisecond-resolution-from-java
+        Thread.sleep(1000);
+
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "overwrite", true);
+            setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+        }).execute();
+
+        assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                is("Hello"));
+        assertThat(Files.getLastModifiedTime(outputPath), not(firstModificationTime));
+    }
+
+    /**
+     * The plugin should always overwrite the output file (even if it has the same content) if {@code overwrite}
+     * is {@code true} and {@code skipCache} is {@code true}.
+     *
+     * @see <a href="https://github.com/maven-download-plugin/maven-download-plugin/issues/194">#194</a>
+     */
+    @Test
+    public void testOverwriteWithSkipCache() throws MojoExecutionException, MojoFailureException, IOException, InterruptedException {
+        this.wireMock
+                .stubFor(get(anyUrl()).willReturn(ok("Hello")));
+
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+            setVariableValueToObject(m, "skipCache", false);
+            setVariableValueToObject(m, "overwrite", true);
+            setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+        }).execute();
+
+        assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                is("Hello"));
+
+        final Path outputPath = outputDirectory.resolve(OUTPUT_FILE_NAME);
+        final FileTime firstModificationTime = Files.getLastModifiedTime(outputPath);
+
+        // apparently, Files.getLastModificationTime only offers a resolution up to seconds with Java 8
+        // see https://stackoverflow.com/questions/24804618/get-file-mtime-with-millisecond-resolution-from-java
+        Thread.sleep(1000);
+
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "overwrite", true);
+            setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+        }).execute();
+
+        assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                is("Hello"));
+        assertThat(Files.getLastModifiedTime(outputPath), not(firstModificationTime));
+    }
+
+    /**
+     * The plugin, if provided the {@code md5}, {@code sha1}, {@code sha256}, {@code sha512} parameters, should verify
+     * if the signature is correct.
+     */
+    @Test
+    public void testSignatures() {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(ok("Hello, world!\n")));
+        new HashMap<String, String>() {{
+            put("md5", "746308829575e17c3331bbcb00c0898b");
+            put("sha1", "09fac8dbfd27bd9b4d23a00eb648aa751789536d");
+            put("sha256", "d9014c4624844aa5bac314773d6b689ad467fa4e1d1a50a1b8a99d5a95f72ff5");
+            put("sha512", "09e1e2a84c92b56c8280f4a1203c7cffd61b162cfe987278d4d6be9afbf38c0e"
+                    + "8934cdadf83751f4e99d111352bffefc958e5a4852c8a7a29c95742ce59288a8");
+        }}.forEach((key, value) -> {
+            try {
+                createMojo(m -> {
+                    setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                    setVariableValueToObject(m, "skipCache", true);
+                    setVariableValueToObject(m, "overwrite", true);
+                    setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+                    setVariableValueToObject(m, key, value);
+                }).execute();
+                assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                        is("Hello, world!"));
+            } catch (MojoExecutionException | MojoFailureException | IOException ex) {
+                final Throwable rootCause = getRootCause(ex);
+                fail("Execution failed with " + key + " test: " + rootCause + " stack trace:\n"
+                        + printStackTrace(rootCause));
+            }
+        });
+    }
+
+    /**
+     * The plugin, if provided the {@code md5}, {@code sha1}, {@code sha256}, {@code sha512} parameters, should verify
+     * if the signature is incorrect.
+     */
+    @Test
+    public void testWrongSignatures() throws MojoExecutionException, MojoFailureException, IOException {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(ok("Hello, world!\n")));
+        Arrays.stream(new String[]{ "md5", "sha1", "sha256", "sha512" }).forEach(key -> {
+            try {
+                createMojo(m -> {
+                    setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                    setVariableValueToObject(m, "skipCache", true);
+                    setVariableValueToObject(m, "overwrite", true);
+                    setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+                    setVariableValueToObject(m, key, "wrong");
+                }).execute();
+                assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                        is("Hello, world!"));
+                fail("Execution failed with " + key + " test: accepted an incorrect signature");
+            } catch (MojoExecutionException | MojoFailureException | IOException ex) {
+                final Throwable rootCause = getRootCause(ex);
+                if (rootCause.getMessage() == null || !rootCause.getMessage().contains("Not same digest as expected")) {
+                    fail("Execution failed with " + key + " test: " + rootCause + " stack trace:\n"
+                            + printStackTrace(rootCause));
+                }
+            }
+        });
+    }
+    private static Throwable getRootCause(Throwable t) {
+        while (t.getCause() != null) {
+            t = t.getCause();
+        }
+        return t;
+    }
+
+    private static String printStackTrace(Throwable t) {
+        return Arrays.stream(t.getStackTrace())
+                .map(StackTraceElement::toString)
+                .map(s -> "\t" + s)
+                .collect(Collectors.joining("\n"));
+    }
+
+    /**
+     * Testing {@code alwaysVerifyChecksum} with an already existing file. The plugin, if provided the {@code md5},
+     * @code sha1}, {@code sha256}, {@code sha512} parameters, should verify if the signature <u>of the existing
+     * file</u> is correct.
+     */
+    @Test
+    public void testExistingFileSignatures() {
+        Path outputFile = outputDirectory.resolve(OUTPUT_FILE_NAME);
+        this.wireMock.stubFor(get(anyUrl()).willReturn(ok("Hello, world!\n")));
+        new HashMap<String, String>() {{
+            put("md5", "746308829575e17c3331bbcb00c0898b");
+            put("sha1", "09fac8dbfd27bd9b4d23a00eb648aa751789536d");
+            put("sha256", "d9014c4624844aa5bac314773d6b689ad467fa4e1d1a50a1b8a99d5a95f72ff5");
+            put("sha512", "09e1e2a84c92b56c8280f4a1203c7cffd61b162cfe987278d4d6be9afbf38c0e"
+                    + "8934cdadf83751f4e99d111352bffefc958e5a4852c8a7a29c95742ce59288a8");
+        }}.forEach((key, value) -> {
+            try {
+                Files.write(outputFile, Collections.singletonList("Hello, world!"));
+                createMojo(m -> {
+                    setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                    setVariableValueToObject(m, "skipCache", true);
+                    setVariableValueToObject(m, "alwaysVerifyChecksum", true);
+                    setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+                    setVariableValueToObject(m, key, value);
+                }).execute();
+                assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
+                        is("Hello, world!"));
+            } catch (MojoExecutionException | MojoFailureException | IOException ex) {
+                final Throwable rootCause = getRootCause(ex);
+                fail("Execution failed with " + key + " test: " + rootCause + " stack trace:\n"
+                        + printStackTrace(rootCause));
+            }
+        });
+    }
+
+    /**
+     * Testing {@code alwaysVerifyChecksum} with an already existing file. The plugin, if provided the {@code md5},
+     * @code sha1}, {@code sha256}, {@code sha512} parameters, should log a warning message if the signature
+     * of the existing file is incorrect.
+     */
+    @Test
+    public void testWrongSignatureOfExistingFile() {
+        Path outputFile = outputDirectory.resolve(OUTPUT_FILE_NAME);
+        this.wireMock.stubFor(get(anyUrl()).willReturn(ok("Hello, world!\n")));
+        Log log = spy(SystemStreamLog.class);
+        StringBuilder loggedWarningMessages = new StringBuilder();
+        doAnswer(invocation -> loggedWarningMessages.append((CharSequence) invocation.getArgument(0)))
+                .when(log).warn(anyString());
+        new HashMap<String, String>() {{
+            put("md5", "746308829575e17c3331bbcb00c0898b");
+            put("sha1", "09fac8dbfd27bd9b4d23a00eb648aa751789536d");
+            put("sha256", "d9014c4624844aa5bac314773d6b689ad467fa4e1d1a50a1b8a99d5a95f72ff5");
+            put("sha512", "09e1e2a84c92b56c8280f4a1203c7cffd61b162cfe987278d4d6be9afbf38c0e"
+                    + "8934cdadf83751f4e99d111352bffefc958e5a4852c8a7a29c95742ce59288a8");
+        }}.forEach((key, value) -> {
+            try {
+                Files.write(outputFile, Collections.singletonList("wrong"), StandardOpenOption.CREATE,
+                        StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
+                createMojo(m -> {
+                    setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                    setVariableValueToObject(m, "skipCache", true);
+                    setVariableValueToObject(m, "alwaysVerifyChecksum", true);
+                    setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+                    setVariableValueToObject(m, "log", log);
+                    setVariableValueToObject(m, key, value);
+                }).execute();
+                assertThat(loggedWarningMessages.toString(),
+                        containsString("The local version of file output-file doesn't match the expected checksum."));
+            } catch (MojoExecutionException | MojoFailureException | IOException ex) {
+                final Throwable rootCause = getRootCause(ex);
+                if (rootCause.getMessage() == null || !rootCause.getMessage().contains("Not same digest as expected")) {
+                    fail("Execution failed with " + key + " test: " + rootCause + " stack trace:\n"
+                            + printStackTrace(rootCause));
+                }
+            }
+        });
     }
 }

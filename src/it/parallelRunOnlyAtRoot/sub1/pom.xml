@@ -13,4 +13,14 @@
     <packaging>pom</packaging>
     <version>${testing.versionUnderTest}</version>
     <name>Test1</name>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>@project.groupId@</groupId>
+                <artifactId>@project.artifactId@</artifactId>
+                <version>@project.version@</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

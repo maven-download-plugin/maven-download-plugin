@@ -8,26 +8,4 @@
     <version>${testing.versionUnderTest}</version>
 	<name>Test</name>
 
-	<!-- Build plugins and extensions -->
-	<build>
-		<plugins>
-			<plugin>
-                <groupId>@project.groupId@</groupId>
-                <artifactId>@project.artifactId@</artifactId>
-                <version>@project.version@</version>
-				<executions>
-					<execution>
-						<phase>generate-resources</phase>
-						<goals>
-							<goal>wget</goal>
-						</goals>
-						<configuration>
-							<url>${test.img.file.url}</url>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-		</plugins>
-	</build>
-
 </project>

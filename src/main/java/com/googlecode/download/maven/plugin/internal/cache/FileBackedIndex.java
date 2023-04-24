@@ -182,7 +182,7 @@ public final class FileBackedIndex implements HttpCacheStorage {
     }
 
     /**
-     * Saves current im-memory index to file based storage.
+     * Saves current in-memory index to file based storage.
      */
     private void save() {
         try (

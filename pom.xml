@@ -78,6 +78,37 @@
 	</build>
 	<profiles>
 		<profile>
+			<!-- Handy for starting a mrm copy for debugging purposes -->
+			<id>debug-mrm</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>mrm-maven-plugin</artifactId>
+						<executions>
+							<execution>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<phase>validate</phase>
+							</execution>
+						</executions>
+						<configuration>
+							<repositories>
+								<mockRepo>
+									<source>src/it-repo</source>
+								</mockRepo>
+								<localRepo>
+									<source>${project.build.directory}/local-repo</source>
+								</localRepo>
+								<proxyRepo />
+							</repositories>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+		<profile>
 			<id>its</id>
 			<build>
 				<plugins>

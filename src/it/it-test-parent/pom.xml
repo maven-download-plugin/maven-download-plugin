@@ -15,7 +15,7 @@
 					<artifactId>@project.artifactId@</artifactId>
 					<version>@project.version@</version>
 					<configuration>
-						<url>${test.img.file.url}</url>
+						<url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.pom</url>
 					</configuration>
 				</plugin>
 			</plugins>
