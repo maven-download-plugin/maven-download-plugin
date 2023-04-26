@@ -4,7 +4,7 @@ package com.googlecode.download.maven.plugin.internal;
  * Represents a download failure exception, thrown when the requested resource returns
  * a non-20x HTTP code.
  */
-public class DownloadFailureException extends Exception {
+public final class DownloadFailureException extends Exception {
 
     private final int statusCode;
 
