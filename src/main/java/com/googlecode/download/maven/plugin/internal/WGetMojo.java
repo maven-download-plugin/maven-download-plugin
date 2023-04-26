@@ -474,7 +474,7 @@ public class WGetMojo extends AbstractMojo {
                 .build();
     }
 
-    private void doGet(final File outputFile) throws IOException, MojoExecutionException, DownloadFailureException {
+    private void doGet(final File outputFile) throws IOException, MojoExecutionException {
         final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
 
         final RemoteRepository repository = createRemoteRepository(this.serverId, this.uri);
