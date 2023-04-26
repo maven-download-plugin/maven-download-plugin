@@ -4,6 +4,7 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.apache.http.auth.AUTH;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.Before;
@@ -21,7 +22,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -125,5 +128,24 @@ public class HttpFileRequesterTest {
 
         assertThat(String.join("", Files.readAllLines(this.outputFile.toPath())),
                 is("Hello, world!"));
+    }
+
+    /**
+     * Tests {@link HttpFileRequester#download(File, List)} should throw a {@link DownloadFailureException}
+     * if the download fails
+     */
+    @Test
+    public void testDownloadFailure() {
+        this.wireMock.stubFor(get(anyUrl())
+                .willReturn(forbidden()));
+
+        try {
+            createFileRequesterBuilder()
+                    .build()
+                    .download(this.outputFile, emptyList());
+            fail("A DownloadFailureException should have been thrown");
+        } catch (Exception e) {
+            assertThat(e, is(instanceOf(DownloadFailureException.class)));
+        }
     }
 }

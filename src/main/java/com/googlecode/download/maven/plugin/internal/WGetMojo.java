@@ -156,7 +156,7 @@ public class WGetMojo extends AbstractMojo {
     /**
      * How many retries for a download
      */
-    @Parameter(defaultValue = "2")
+    @Parameter(property = "download.retries", defaultValue = "2")
     private int retries;
 
     /**
@@ -385,24 +385,34 @@ public class WGetMojo extends AbstractMojo {
                     }
                 }
                 boolean done = false;
-                while (!done && this.retries > 0) {
+                for (int retriesLeft = this.retries; retriesLeft > 0; --retriesLeft) {
                     try {
                         this.doGet(outputFile);
                         checksums.validate(outputFile);
                         done = true;
-                    } catch (IOException ex) {
-                        getLog().warn("Could not get content", ex);
-                        this.retries--;
-                        if (this.retries > 0) {
-                            getLog().warn("Retrying (" + this.retries + " more)");
+                    } catch (DownloadFailureException ex) {
+                        // treating HTTP codes >= 500 as transient and thus always retriable
+                        if (this.failOnError && ex.getHttpCode() < 500) {
+                            throw new MojoExecutionException(ex.getMessage(), ex);
+                        } else {
+                            getLog().warn(ex.getMessage());
                         }
+                    } catch (IOException ex) {
+                        if (this.failOnError) {
+                            throw new MojoExecutionException(ex.getMessage(), ex);
+                        } else {
+                            getLog().warn(ex.getMessage());
+                        }
+                    }
+                    if (!done) {
+                        getLog().warn("Retrying (" + (retriesLeft - 1) + " more)");
                     }
                 }
                 if (!done) {
                     if (this.failOnError) {
-                        throw new MojoFailureException("Could not get content");
+                        throw new MojoFailureException("Could not get content after " + this.retries + " failed attempts.");
                     } else {
-                        getLog().warn("Ignoring download failure.");
+                        getLog().warn("Ignoring download failure(s).");
                         return;
                     }
                 }
@@ -413,6 +423,8 @@ public class WGetMojo extends AbstractMojo {
             } else {
             	this.buildContext.refresh(outputFile);
             }
+        } catch (MojoExecutionException e) {
+            throw e;
         } catch (IOException ex) {
             throw new MojoExecutionException("IO Error: ", ex);
         } catch (NoSuchArchiverException e) {

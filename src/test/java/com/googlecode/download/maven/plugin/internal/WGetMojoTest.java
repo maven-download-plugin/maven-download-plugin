@@ -22,7 +22,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.sonatype.plexus.build.incremental.BuildContext;
 
@@ -57,7 +56,7 @@ import static org.mockito.Mockito.*;
  *
  * @author Andrzej Jarmoniuk
  */
-public class WGetTest {
+public class WGetMojoTest {
     @Rule
     public WireMockRule wireMock = new WireMockRule(options().dynamicPort());
     @Rule
@@ -623,5 +622,71 @@ public class WGetTest {
                 }
             }
         });
+    }
+
+    /**
+     * Plugin execution should fail if code >= 400 was returned by the resource being downloaded.
+     * It should not repeat the query.
+     */
+    @Test
+    public void testBuildShouldFailIfDownloadFails() {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(forbidden()));
+        try {
+            createMojo(m -> {
+                setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                setVariableValueToObject(m, "skipCache", true);
+                setVariableValueToObject(m, "failOnError", true);
+            }).execute();
+            fail("The mojo should have failed upon error");
+        } catch (Exception e) {
+            assertThat(e, is(instanceOf(MojoExecutionException.class)));
+            assertThat(e.getCause(), is(instanceOf(DownloadFailureException.class)));
+            assertThat(((DownloadFailureException) e.getCause()).getHttpCode(), is(HttpStatus.SC_FORBIDDEN));
+            verify(1, getRequestedFor(anyUrl()));
+        }
+    }
+
+    /**
+     * Plugin execution should fail only after all retries have been exhausted
+     * if a 500+ code was returned by the resource being downloaded.
+     * It should repeat the query exactly 3 times.
+     */
+    @Test
+    public void testRetriedAfterDownloadFailsWithCode500() {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(serverError()));
+        try {
+            createMojo(m -> {
+                setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                setVariableValueToObject(m, "skipCache", true);
+                setVariableValueToObject(m, "failOnError", true);
+                setVariableValueToObject(m, "retries", 3);
+            }).execute();
+            fail("The mojo should have failed upon error");
+        } catch (Exception e) {
+            assertThat(e, is(instanceOf(MojoExecutionException.class)));
+            verify(3, getRequestedFor(anyUrl()));
+        }
+    }
+
+    /**
+     * Plugin should ignore a download failure if instructed to do so. It should not repeat the query.
+     */
+    @Test
+    public void testIgnoreDownloadFailure()
+            throws MojoExecutionException, MojoFailureException {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(forbidden()));
+        try {
+            createMojo(m -> {
+                setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+                setVariableValueToObject(m, "skipCache", true);
+                setVariableValueToObject(m, "failOnError", false);
+            }).execute();
+            verify(1, getRequestedFor(anyUrl()));
+        } catch (MojoExecutionException e) {
+            if (e.getCause() instanceof DownloadFailureException) {
+                fail("Plugin should ignore a download failure");
+            }
+            throw e;
+        }
     }
 }

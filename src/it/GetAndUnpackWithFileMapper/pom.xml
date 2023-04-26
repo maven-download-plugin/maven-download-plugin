@@ -22,6 +22,7 @@
                             <goal>wget</goal>
                         </goals>
                         <configuration>
+                            <!-- downloading a locally hosted jar archive, containing a "Hello, world!" text -->
                             <url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.jar</url>
                             <unpack>true</unpack>
                             <fileMappers>

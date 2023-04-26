@@ -268,8 +268,8 @@ public class HttpFileRequester {
 
             final HttpGet httpGet = new HttpGet(this.uri);
             headers.forEach(httpGet::setHeader);
-            httpClient.execute(httpGet, response ->
-                    handleResponse(this.uri, outputFile, clientContext, response), clientContext);
+            httpClient.execute(httpGet, response -> handleResponse(this.uri, outputFile, clientContext, response),
+                    clientContext);
         }
     }
 
@@ -283,8 +283,11 @@ public class HttpFileRequester {
      * @throws IOException thrown if I/O operations don't succeed
      */
     private Object handleResponse( URI uri, File outputFile, HttpCacheContext clientContext, HttpResponse response )
-            throws IOException
-    {
+            throws IOException {
+        if (response.getStatusLine().getStatusCode() >= 400) {
+            throw new DownloadFailureException(response.getStatusLine().getStatusCode(),
+                    response.getStatusLine().getReasonPhrase());
+        }
         final HttpEntity entity = response.getEntity();
         if (entity != null) {
             switch ( clientContext.getCacheResponseStatus()) {
