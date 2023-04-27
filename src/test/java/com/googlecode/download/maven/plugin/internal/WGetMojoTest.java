@@ -548,7 +548,7 @@ public class WGetMojoTest {
 
     /**
      * Testing {@code alwaysVerifyChecksum} with an already existing file. The plugin, if provided the {@code md5},
-     * @code sha1}, {@code sha256}, {@code sha512} parameters, should verify if the signature <u>of the existing
+     * {@code sha1}, {@code sha256}, {@code sha512} parameters, should verify if the signature <u>of the existing
      * file</u> is correct.
      */
     @Test
@@ -583,7 +583,7 @@ public class WGetMojoTest {
 
     /**
      * Testing {@code alwaysVerifyChecksum} with an already existing file. The plugin, if provided the {@code md5},
-     * @code sha1}, {@code sha256}, {@code sha512} parameters, should log a warning message if the signature
+     * {@code sha1}, {@code sha256}, {@code sha512} parameters, should log a warning message if the signature
      * of the existing file is incorrect.
      */
     @Test
@@ -625,7 +625,7 @@ public class WGetMojoTest {
     }
 
     /**
-     * Plugin execution should fail if code >= 400 was returned by the resource being downloaded.
+     * Plugin execution should fail if code &gt;= 400 was returned by the resource being downloaded.
      * It should not repeat the query.
      */
     @Test

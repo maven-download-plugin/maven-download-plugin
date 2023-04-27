@@ -66,7 +66,7 @@ It provides caching and checksum verification.
 
 ## Requirements
 
-Starting from version 1.6.9, the plugin requires Maven version 3 or above.
+Starting from version 1.6.9, the plugin requires Maven version 3.2.5 or above.
 
 ## Known issues and workarounds
 
