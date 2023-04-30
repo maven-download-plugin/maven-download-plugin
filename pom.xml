@@ -382,8 +382,8 @@
             <plugin>
                 <artifactId>maven-pmd-plugin</artifactId>
                 <configuration>
-                    <linkXref>true</linkXref>
-                    <targetJdk>${jdk}</targetJdk>
+                    <linkXRef>true</linkXRef>
+                    <targetJdk>8</targetJdk>
                     <minimumTokens>100</minimumTokens>
                     <rulesets>
                         <!-- Rule sets that come bundled with PMD -->
@@ -400,14 +400,37 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>taglist-maven-plugin</artifactId>
+                <version>3.0.0</version>
                 <configuration>
-                    <tags>
-                        <tag>TODO</tag>
-                        <tag>FIXME</tag>
-                        <tag>@todo</tag>
-                        <tag>@fixme</tag>
-                        <tag>@deprecated</tag>
-                    </tags>
+                    <tagListOptions>
+                        <tagClasses>
+                            <tagClass>
+                                <displayName>Todo Work</displayName>
+                                <tags>
+                                    <tag>
+                                        <matchString>TODO</matchString>
+                                        <matchType>exact</matchType>
+                                    </tag>
+                                    <tag>
+                                        <matchString>FIXME</matchString>
+                                        <matchType>exact</matchType>
+                                    </tag>
+                                    <tag>
+                                        <matchString>@todo</matchString>
+                                        <matchType>ignoreCase</matchType>
+                                    </tag>
+                                    <tag>
+                                        <matchString>@fixme</matchString>
+                                        <matchType>ignoreCase</matchType>
+                                    </tag>
+                                    <tag>
+                                        <matchString>@deprecated</matchString>
+                                        <matchType>ignoreCase</matchType>
+                                    </tag>
+                                </tags>
+                            </tagClass>
+                        </tagClasses>
+                    </tagListOptions>
                 </configuration>
             </plugin>
             <plugin>
@@ -426,12 +449,6 @@
             <plugin>
                 <artifactId>maven-changelog-plugin</artifactId>
             </plugin>
-            <!-- Removed due to https://github.com/mojohaus/cobertura-maven-plugin/issues/67 -->
-            <!--			<plugin>-->
-            <!--				<groupId>org.codehaus.mojo</groupId>-->
-            <!--				<artifactId>cobertura-maven-plugin</artifactId>-->
-            <!--				<version>2.7</version>-->
-            <!--			</plugin>-->
         </plugins>
     </reporting>
 </project>
