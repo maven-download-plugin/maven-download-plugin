@@ -288,6 +288,11 @@ public class HttpFileRequester {
             throw new DownloadFailureException(response.getStatusLine().getStatusCode(),
                     response.getStatusLine().getReasonPhrase());
         }
+        if (response.getStatusLine().getStatusCode() >= 301 && response.getStatusLine().getStatusCode() <= 303) {
+            throw new DownloadFailureException(response.getStatusLine().getStatusCode(),
+                    response.getStatusLine().getReasonPhrase()
+                            + ". Not downloading the resource because followRedirects is false.");
+        }
         final HttpEntity entity = response.getEntity();
         if (entity != null) {
             switch ( clientContext.getCacheResponseStatus()) {
@@ -336,6 +341,8 @@ public class HttpFileRequester {
             CacheConfig config = CacheConfig.custom()
                     .setHeuristicDefaultLifetime(HEURISTIC_DEFAULT_LIFETIME)
                     .setHeuristicCachingEnabled(true)
+                    .setMaxObjectSize(Long.MAX_VALUE)
+                    .setMaxCacheEntries(Integer.MAX_VALUE)
                     .build();
             httpClientBuilder
                     .setCacheDir(this.cacheDir)

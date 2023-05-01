@@ -216,10 +216,12 @@ public class WGetMojo extends AbstractMojo {
     private boolean checkSignature;
 
     /**
-     * Whether to follow redirects (302)
+     * <p>Whether to follow redirects (301 Moved Permanently, 302 Found, 303 See Other).</p>
+     * <p>If this option is disabled and the returned resource returns a redirect, the plugin will report an error
+     * and exit unless {@link #failOnError} is {@code false}.</p>
      */
-    @Parameter(property = "download.plugin.followRedirects", defaultValue = "false")
-    private boolean followRedirects;
+    @Parameter(property = "download.plugin.followRedirects", defaultValue = "true")
+    private boolean followRedirects = true;
 
     /**
      * A list of additional HTTP headers to send with the request
@@ -385,7 +387,7 @@ public class WGetMojo extends AbstractMojo {
                     }
                 }
                 boolean done = false;
-                for (int retriesLeft = this.retries; retriesLeft > 0; --retriesLeft) {
+                for (int retriesLeft = this.retries; !done && retriesLeft > 0; --retriesLeft) {
                     try {
                         this.doGet(outputFile);
                         checksums.validate(outputFile);
