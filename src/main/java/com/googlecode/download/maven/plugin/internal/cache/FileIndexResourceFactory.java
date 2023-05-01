@@ -22,8 +22,6 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
  */
 @Contract(threading = ThreadingBehavior.IMMUTABLE)
 public class FileIndexResourceFactory implements ResourceFactory {
-
-    private static final Pattern DOMAIN_REGEX = Pattern.compile("^(?:\\{[^}]*})?(?:[^/]*//)?(?:[^@]+@)?([^/:]+)");
     private final Path cacheDir;
 
     public FileIndexResourceFactory(final Path cacheDir) {
@@ -32,9 +30,11 @@ public class FileIndexResourceFactory implements ResourceFactory {
     }
 
     protected Path generateUniqueCachePath(final String uri) {
-        Matcher domainMatcher = DOMAIN_REGEX.matcher(uri);
-        String domainPrefix = domainMatcher.find() ? domainMatcher.group(1) + '_' + DigestUtils.md5Hex(uri) : "";
-        return Paths.get(domainPrefix + DigestUtils.md5Hex(uri));
+        int slashIndex = uri.lastIndexOf('/');
+        String fileName = slashIndex < uri.length() - 1
+                ? uri.substring(slashIndex + 1) + "_"
+                : "";
+           return Paths.get(fileName + DigestUtils.md5Hex(uri));
     }
 
     @Override
