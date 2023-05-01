@@ -145,15 +145,13 @@ public final class FileBackedIndex implements HttpCacheStorage {
         }
         Path cachedFile = Paths.get(this.index.get(uri));
         if (!Files.exists(baseDir.resolve(cachedFile))) {
-            log.debug("Cached version of " + uri + " is gone; deleting cache entry");
-            this.index.remove(uri);
+            log.warn("Cached version of " + uri + " is gone; deleting cache entry");
             try {
-                this.load(cacheIndexFile);
+                this.index.remove(uri);
                 this.save();
+                return null;
             } catch (IncompatibleIndexException e) {
                 log.warn("Could not load index cache index file, it will be rewritten.");
-            } catch (IOException e) {
-                log.warn("Unable to update cache.");
             }
         }
         return asHttpCacheEntry(cachedFile, baseDir);
