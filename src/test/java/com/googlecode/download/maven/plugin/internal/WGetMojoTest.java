@@ -804,4 +804,28 @@ public class WGetMojoTest {
     public void testShouldWarnOnRedirectsIfDisabled() {
         IntStream.of(301, 302, 303).forEach(this::testNoRedirects);
     }
+
+    /**
+     * Shall return the host name if the resource is empty.
+     */
+    @Test
+    public void testGetOutputFileNameForEmptyResource() {
+        assertThat(WGetMojo.getOutputFileName(URI.create("https://www.dummy.com")), is("www.dummy.com"));
+    }
+
+    /**
+     * Shall return the host name if the resource is just the root resource.
+     */
+    @Test
+    public void testGetOutputFileNameForRootResource() {
+        assertThat(WGetMojo.getOutputFileName(URI.create("https://www.dummy.com/")), is("www.dummy.com"));
+    }
+
+    /**
+     * Shall return the resource name if the resource not the root resource
+     */
+    @Test
+    public void testGetOutputFileNameForNonRootResource() {
+        assertThat(WGetMojo.getOutputFileName(URI.create("https://www.dummy.com/resource")), is("resource"));
+    }
 }

@@ -12,8 +12,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -30,11 +28,15 @@ public class FileIndexResourceFactory implements ResourceFactory {
     }
 
     protected Path generateUniqueCachePath(final String uri) {
-        int slashIndex = uri.lastIndexOf('/');
-        String fileName = slashIndex < uri.length() - 1
-                ? uri.substring(slashIndex + 1) + "_"
-                : "";
-           return Paths.get(fileName + DigestUtils.md5Hex(uri));
+        String resourcePart = !uri.isEmpty()
+                ? uri.substring(uri.lastIndexOf('/') + 1)
+                : uri;
+        resourcePart = resourcePart.isEmpty()
+                ? resourcePart
+                : resourcePart + "_";
+        // append a unique string based on timestamp
+        return Paths.get(resourcePart +
+                DigestUtils.md5Hex(String.valueOf(System.currentTimeMillis())));
     }
 
     @Override
@@ -42,10 +44,10 @@ public class FileIndexResourceFactory implements ResourceFactory {
             final String requestId,
             final InputStream inStream,
             final InputLimit limit) throws IOException {
-        final Path cachedFile = generateUniqueCachePath(requestId);
         if (!Files.exists(cacheDir)) {
             Files.createDirectories(cacheDir);
         }
+        final Path cachedFile = generateUniqueCachePath(requestId);
         Files.copy(inStream, cacheDir.resolve(cachedFile), REPLACE_EXISTING);
         return new FileIndexResource(cachedFile, cacheDir);
     }
