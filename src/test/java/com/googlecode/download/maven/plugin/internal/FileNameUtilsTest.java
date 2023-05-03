@@ -8,16 +8,16 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 /**
- * Unit test suite for the {@link CommonUtils} class
+ * Unit test suite for the {@link FileNameUtils} class
  */
-public class CommonUtilsTest {
+public class FileNameUtilsTest {
 
     /**
      * Shall return the host name if the resource is empty.
      */
     @Test
     public void testGetOutputFileNameForEmptyResource() {
-        assertThat(CommonUtils.getOutputFileName(URI.create("https://www.dummy.com")), is("www.dummy.com"));
+        assertThat(FileNameUtils.getOutputFileName(URI.create("https://www.dummy.com")), is("www.dummy.com"));
     }
 
     /**
@@ -25,7 +25,7 @@ public class CommonUtilsTest {
      */
     @Test
     public void testGetOutputFileNameForRootResource() {
-        assertThat(CommonUtils.getOutputFileName(URI.create("https://www.dummy.com/")), is("www.dummy.com"));
+        assertThat(FileNameUtils.getOutputFileName(URI.create("https://www.dummy.com/")), is("www.dummy.com"));
     }
 
     /**
@@ -33,6 +33,6 @@ public class CommonUtilsTest {
      */
     @Test
     public void testGetOutputFileNameForNonRootResource() {
-        assertThat(CommonUtils.getOutputFileName(URI.create("https://www.dummy.com/resource")), is("resource"));
+        assertThat(FileNameUtils.getOutputFileName(URI.create("https://www.dummy.com/resource")), is("resource"));
     }
 }
