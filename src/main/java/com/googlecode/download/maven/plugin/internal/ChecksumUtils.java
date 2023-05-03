@@ -52,20 +52,4 @@ public class ChecksumUtils {
         byte[] actualDigest = digest.digest();
         return new String(Hex.encodeHex(actualDigest));
     }
-
-    public static String getMD5(File file) throws IOException, NoSuchAlgorithmException {
-        return computeChecksumAsString(file, MessageDigest.getInstance("MD5"));
-    }
-
-    public static String getSHA1(File file) throws IOException, NoSuchAlgorithmException {
-        return computeChecksumAsString(file, MessageDigest.getInstance("SHA1"));
-    }
-
-    public static String getSHA256(File file) throws IOException, NoSuchAlgorithmException {
-        return computeChecksumAsString(file, MessageDigest.getInstance("SHA-256"));
-    }
-
-    public static String getSHA512(File file) throws IOException, NoSuchAlgorithmException {
-        return computeChecksumAsString(file, MessageDigest.getInstance("SHA-512"));
-    }
 }

@@ -12,8 +12,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.UUID;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -22,8 +21,6 @@ import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
  */
 @Contract(threading = ThreadingBehavior.IMMUTABLE)
 public class FileIndexResourceFactory implements ResourceFactory {
-
-    private static final Pattern DOMAIN_REGEX = Pattern.compile("^(?:\\{[^}]*})?(?:[^/]*//)?(?:[^@]+@)?([^/:]+)");
     private final Path cacheDir;
 
     public FileIndexResourceFactory(final Path cacheDir) {
@@ -32,9 +29,15 @@ public class FileIndexResourceFactory implements ResourceFactory {
     }
 
     protected Path generateUniqueCachePath(final String uri) {
-        Matcher domainMatcher = DOMAIN_REGEX.matcher(uri);
-        String domainPrefix = domainMatcher.find() ? domainMatcher.group(1) + '_' + DigestUtils.md5Hex(uri) : "";
-        return Paths.get(domainPrefix + DigestUtils.md5Hex(uri));
+        String resourcePart = !uri.isEmpty()
+                ? uri.substring(uri.lastIndexOf('/') + 1)
+                : uri;
+        resourcePart = resourcePart.isEmpty()
+                ? resourcePart
+                : resourcePart + "_";
+        // append a unique string based on timestamp
+        return Paths.get(resourcePart +
+                DigestUtils.md5Hex(UUID.randomUUID().toString()));
     }
 
     @Override
@@ -42,10 +45,10 @@ public class FileIndexResourceFactory implements ResourceFactory {
             final String requestId,
             final InputStream inStream,
             final InputLimit limit) throws IOException {
-        final Path cachedFile = generateUniqueCachePath(requestId);
         if (!Files.exists(cacheDir)) {
             Files.createDirectories(cacheDir);
         }
+        final Path cachedFile = generateUniqueCachePath(requestId);
         Files.copy(inStream, cacheDir.resolve(cachedFile), REPLACE_EXISTING);
         return new FileIndexResource(cachedFile, cacheDir);
     }

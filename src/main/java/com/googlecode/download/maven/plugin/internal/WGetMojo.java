@@ -311,11 +311,7 @@ public class WGetMojo extends AbstractMojo {
 
         // PREPARE
         if (this.outputFileName == null) {
-            try {
-                this.outputFileName = new File(this.uri.toURL().getPath()).getName();
-            } catch (Exception ex) {
-                throw new MojoExecutionException("Invalid URL", ex);
-            }
+            this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
         }
         if (!this.skipCache) {
             if (this.cacheDirectory == null) {
@@ -439,7 +435,6 @@ public class WGetMojo extends AbstractMojo {
             }
         }
     }
-
 
     private void unpack(File outputFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);

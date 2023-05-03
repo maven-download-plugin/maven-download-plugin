@@ -6,23 +6,46 @@ import java.nio.file.Paths;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 /**
  * Unit tests for {@linkplain FileIndexResourceFactory}
  */
 public class FileIndexResourceFactoryTest {
-
+    /**
+     * URI is a relative URI without protocol spec, so it doesn't contain the host name.
+     * We will test if the method {@link FileIndexResourceFactory#generateUniqueCachePath(String)}
+     * is able to generate a unique path for the root resource.
+     */
     @Test
-    public void testGenerateUniqueCacheFile()
+    public void testGenerateUniqueCacheFileForEmptyResource()
     {
-        FileIndexResourceFactory factory = new FileIndexResourceFactory(Paths.get("/tmp"));
-        assertThat(factory.generateUniqueCachePath("dummy://www.test.com/somefile.bin").toString(),
-                containsString("www.test.com_"));
-        assertThat(factory.generateUniqueCachePath("test://www.test.com:8080/somefile.bin").toString(),
-                containsString("www.test.com_"));
-        assertThat(factory.generateUniqueCachePath("foo://billg@www.test.com:8080/somefile.bin").toString(),
-                containsString("www.test.com_"));
-        assertThat(factory.generateUniqueCachePath("bar://billg:hunter2@www.test.com:8080/somefile.bin").toString(),
-                containsString("www.test.com_"));
+        assertThat(new FileIndexResourceFactory(Paths.get("/tmp"))
+                .generateUniqueCachePath("").toString(), not(containsString("_")));
+    }
+
+    /**
+     * URI is a relative URI without protocol spec, so it doesn't contain the host name.
+     * We will test if the method {@link FileIndexResourceFactory#generateUniqueCachePath(String)}
+     * is able to generate a unique path for the root resource.
+     */
+    @Test
+    public void testGenerateUniqueCacheFileForRootResource()
+    {
+        assertThat(new FileIndexResourceFactory(Paths.get("/tmp"))
+                .generateUniqueCachePath("/").toString(), not(containsString("_")));
+    }
+
+    /**
+     * URI is a relative URI without protocol spec, so it doesn't contain the host name.
+     * We will test if the method {@link FileIndexResourceFactory#generateUniqueCachePath(String)}
+     * is able to generate a unique path for a resource containing a file name.
+     */
+    @Test
+    public void testGenerateUniqueCacheFileForNonRootResource()
+    {
+        assertThat(new FileIndexResourceFactory(Paths.get("/tmp"))
+                        .generateUniqueCachePath("/someFileName").toString(),
+                containsString("someFileName"));
     }
 }
