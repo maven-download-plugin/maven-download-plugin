@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.UUID;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 
@@ -36,7 +37,7 @@ public class FileIndexResourceFactory implements ResourceFactory {
                 : resourcePart + "_";
         // append a unique string based on timestamp
         return Paths.get(resourcePart +
-                DigestUtils.md5Hex(String.valueOf(System.currentTimeMillis())));
+                DigestUtils.md5Hex(UUID.randomUUID().toString()));
     }
 
     @Override
