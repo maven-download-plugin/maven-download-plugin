@@ -311,7 +311,7 @@ public class WGetMojo extends AbstractMojo {
 
         // PREPARE
         if (this.outputFileName == null) {
-            this.outputFileName = getOutputFileName(this.uri);
+            this.outputFileName = CommonUtils.getOutputFileName(this.uri);
         }
         if (!this.skipCache) {
             if (this.cacheDirectory == null) {
@@ -434,12 +434,6 @@ public class WGetMojo extends AbstractMojo {
                 fileLock.unlock();
             }
         }
-    }
-
-    protected static String getOutputFileName(URI uri) {
-        return uri.getPath().isEmpty() || uri.getPath().equals("/")
-                ? uri.getHost()
-                : uri.getPath().substring(uri.getPath().lastIndexOf('/') + 1);
     }
 
     private void unpack(File outputFile) throws NoSuchArchiverException {

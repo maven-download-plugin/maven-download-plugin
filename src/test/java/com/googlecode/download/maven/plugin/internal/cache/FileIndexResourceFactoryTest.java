@@ -1,24 +1,17 @@
 package com.googlecode.download.maven.plugin.internal.cache;
 
-import org.junit.Before;
 import org.junit.Test;
 
 import java.nio.file.Paths;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 
 /**
  * Unit tests for {@linkplain FileIndexResourceFactory}
  */
 public class FileIndexResourceFactoryTest {
-
-    private FileIndexResourceFactory factory;
-
-    @Before
-    public void setUp() {
-        this.factory = new FileIndexResourceFactory(Paths.get("/tmp"));
-    }
     /**
      * URI is a relative URI without protocol spec, so it doesn't contain the host name.
      * We will test if the method {@link FileIndexResourceFactory#generateUniqueCachePath(String)}
@@ -27,7 +20,8 @@ public class FileIndexResourceFactoryTest {
     @Test
     public void testGenerateUniqueCacheFileForEmptyResource()
     {
-        assertThat(this.factory.generateUniqueCachePath("").toString(), not(containsString("_")));
+        assertThat(new FileIndexResourceFactory(Paths.get("/tmp"))
+                .generateUniqueCachePath("").toString(), not(containsString("_")));
     }
 
     /**
@@ -38,7 +32,8 @@ public class FileIndexResourceFactoryTest {
     @Test
     public void testGenerateUniqueCacheFileForRootResource()
     {
-        assertThat(this.factory.generateUniqueCachePath("/").toString(), not(containsString("_")));
+        assertThat(new FileIndexResourceFactory(Paths.get("/tmp"))
+                .generateUniqueCachePath("/").toString(), not(containsString("_")));
     }
 
     /**
@@ -49,7 +44,8 @@ public class FileIndexResourceFactoryTest {
     @Test
     public void testGenerateUniqueCacheFileForNonRootResource()
     {
-        assertThat(this.factory.generateUniqueCachePath("/someFileName").toString(),
+        assertThat(new FileIndexResourceFactory(Paths.get("/tmp"))
+                        .generateUniqueCachePath("/someFileName").toString(),
                 containsString("someFileName"));
     }
 }
