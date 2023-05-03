@@ -311,7 +311,7 @@ public class WGetMojo extends AbstractMojo {
 
         // PREPARE
         if (this.outputFileName == null) {
-            this.outputFileName = CommonUtils.getOutputFileName(this.uri);
+            this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
         }
         if (!this.skipCache) {
             if (this.cacheDirectory == null) {
