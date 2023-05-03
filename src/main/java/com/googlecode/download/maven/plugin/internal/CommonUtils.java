@@ -5,7 +5,7 @@ import java.net.URI;
 /**
  * Common utilities used by the {@link WGetMojo}
  */
-public class CommonUtils {
+public final class FileNameUtils {
 
     /**
      * Attempts to construct the target file name based on an URI as the relative resource name
