@@ -167,6 +167,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>mrm-maven-plugin</artifactId>
+                        <version>1.5.0</version>
                         <executions>
                             <execution>
                                 <goals>
@@ -197,6 +198,7 @@
                     <plugin>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>mrm-maven-plugin</artifactId>
+                        <version>1.5.0</version>
                         <executions>
                             <execution>
                                 <goals>
