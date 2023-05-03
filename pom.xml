@@ -179,7 +179,7 @@
                         <configuration>
                             <repositories>
                                 <mockRepo>
-                                    <source>src/it-repo</source>
+                                    <source>${project.basedir}/src/it-repo</source>
                                 </mockRepo>
                                 <localRepo>
                                     <source>${project.build.directory}/local-repo</source>
@@ -210,7 +210,7 @@
                         <configuration>
                             <repositories>
                                 <mockRepo>
-                                    <source>src/it-repo</source>
+                                    <source>${project.basedir}/src/it-repo</source>
                                 </mockRepo>
                                 <localRepo>
                                     <source>${project.build.directory}/local-repo</source>
