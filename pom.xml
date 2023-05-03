@@ -11,8 +11,6 @@
 
     <name>Download Plugin for Maven</name>
 
-    <!-- See https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide -->
-
     <!-- Distribution Management, see https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide
         and http://maven.apache.org/wagon/wagon-providers/wagon-scm/usage.html -->
     <distributionManagement>
@@ -81,12 +79,8 @@
     </licenses>
 
     <scm>
-        <connection>
-            scm:git:git://github.com/maven-download-plugin/maven-download-plugin.git
-        </connection>
-        <developerConnection>
-            scm:git:ssh://git@github.com/maven-download-plugin/maven-download-plugin.git
-        </developerConnection>
+        <connection>scm:git:git://github.com/maven-download-plugin/maven-download-plugin.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/maven-download-plugin/maven-download-plugin.git</developerConnection>
         <url>https://github.com/maven-download-plugin/maven-download-plugin</url>
     </scm>
 
