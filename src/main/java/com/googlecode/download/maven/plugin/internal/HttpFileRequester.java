@@ -199,10 +199,10 @@ public class HttpFileRequester {
             instance.preemptiveAuth = this.preemptiveAuth;
             instance.log = requireNonNull(this.log);
 
-            requireNonNull(this.mavenSession);
-
             instance.credentialsProvider = new BasicCredentialsProvider();
             if (isNotBlank(this.serverId)) {
+                requireNonNull(this.mavenSession);
+
                 if (this.log.isDebugEnabled()) {
                     this.log.debug("providing custom authentication for " + this.serverId);
                 }
