@@ -4,7 +4,7 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.apache.http.*;
 import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.protocol.HTTP;
@@ -18,7 +18,6 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.codehaus.plexus.util.ReflectionUtils;
 import org.eclipse.aether.DefaultRepositorySystemSession;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -78,11 +77,6 @@ public class WGetMojoTest {
         outputDirectory = temporaryFolder.newFolder("wget-test").toPath();
     }
 
-    @After
-    public void tearDown() {
-        temporaryFolder.delete();
-    }
-
     private <T> void setVariableValueToObject(Object object, String variable, T value) {
         try {
             Field field = ReflectionUtils.getFieldByNameIncludingSuperclasses(variable, object.getClass());
@@ -125,9 +119,9 @@ public class WGetMojoTest {
         return mojo;
     }
 
-    private static CachingHttpClientBuilder createClientBuilderForResponse(Supplier<HttpResponse> responseSupplier) {
+    private static HttpClientBuilder createClientBuilderForResponse(Supplier<HttpResponse> responseSupplier) {
         // mock client builder
-        CachingHttpClientBuilder clientBuilder = CachingHttpClientBuilder.create();
+        HttpClientBuilder clientBuilder = HttpClientBuilder.create();
         clientBuilder.setConnectionManager(new BasicHttpClientConnectionManager() {
             @Override
             public void connect(HttpClientConnection conn, HttpRoute route, int connectTimeout, HttpContext context) {
@@ -143,7 +137,7 @@ public class WGetMojoTest {
         return clientBuilder;
     }
 
-    private static CachingHttpClientBuilder createClientBuilder(Supplier<String> contentSupplier) {
+    private static HttpClientBuilder createClientBuilder(Supplier<String> contentSupplier) {
         return createClientBuilderForResponse(() ->
                 new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "Ok") {{
                     try {
@@ -161,9 +155,9 @@ public class WGetMojoTest {
     public void testCacheDirectoryNotCreated()
             throws MojoExecutionException, MojoFailureException {
 
-        CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
-        try (MockedStatic<CachingHttpClientBuilder> httpClientBuilder = mockStatic(CachingHttpClientBuilder.class)) {
-            httpClientBuilder.when(CachingHttpClientBuilder::create).thenReturn(clientBuilder);
+        HttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
+        try (MockedStatic<HttpClientBuilder> httpClientBuilder = mockStatic(HttpClientBuilder.class)) {
+            httpClientBuilder.when(HttpClientBuilder::create).thenReturn(clientBuilder);
             createMojo(m -> setVariableValueToObject(m, "skipCache", true)).execute();
         }
         assertThat("Cache directory should remain empty if skipCache is true", cacheDirectory.toFile().list(),
@@ -171,22 +165,25 @@ public class WGetMojoTest {
     }
 
     /**
-     * Verifies that there is no exception thrown should the cache directory not exist if no file is retrieved
+     * Verifies that there is no exception thrown should the cache directory not exist if no file is retrieved.\
+     * Additionally, cache directory must be created if {@code skipCache} is {@code false}.
      *
      * @throws Exception should any exception be thrown
      */
     @Test
     public void testCacheInANonExistingDirectory() throws Exception {
         Path cacheDir = this.cacheDirectory.resolve("cache/dir");
-        CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
-        try (MockedStatic<CachingHttpClientBuilder> builder = mockStatic(CachingHttpClientBuilder.class)) {
-            builder.when(CachingHttpClientBuilder::create).thenReturn(clientBuilder);
+        assertThat(Files.exists(cacheDir), is(false));
+        HttpClientBuilder clientBuilder = createClientBuilder(() -> "Hello, world!");
+        try (MockedStatic<HttpClientBuilder> builder = mockStatic(HttpClientBuilder.class)) {
+            builder.when(HttpClientBuilder::create).thenReturn(clientBuilder);
             createMojo(m -> setVariableValueToObject(m, "cacheDirectory", cacheDir.toFile())).execute();
         } catch (MojoExecutionException | MojoFailureException e) {
             throw new RuntimeException(e);
         } finally {
             assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
                     is("Hello, world!"));
+            assertThat(Files.exists(cacheDir), is(true));
         }
     }
 
@@ -221,9 +218,7 @@ public class WGetMojoTest {
     @Test
     public void testCacheNotWrittenToIfFailed() throws Exception {
         try {
-            WGetMojo mojo = createMojo(ignored -> {
-                return;
-            });
+            WGetMojo mojo = createMojo(ignored -> {});
             // inject null value so that we get a NullPointerException thrown
             setVariableValueToObject(mojo, "session", null);
             mojo.execute();
@@ -244,19 +239,19 @@ public class WGetMojoTest {
      */
     @Test
     public void testReadingFromCache() throws Exception {
-        final CachingHttpClientBuilder firstAnswer = createClientBuilder(() -> "Hello, world!");
+        final HttpClientBuilder firstAnswer = createClientBuilder(() -> "Hello, world!");
         // first mojo will get a cache miss
-        try (MockedStatic<CachingHttpClientBuilder> httpClientBuilder = mockStatic(CachingHttpClientBuilder.class)) {
-            httpClientBuilder.when(CachingHttpClientBuilder::create).thenReturn(firstAnswer);
+        try (MockedStatic<HttpClientBuilder> httpClientBuilder = mockStatic(HttpClientBuilder.class)) {
+            httpClientBuilder.when(HttpClientBuilder::create).thenReturn(firstAnswer);
             createMojo(mojo -> {
             }).execute();
 
         }
 
         // now, let's try to read that from cache – we should get the response from cache and not from the resource
-        final CachingHttpClientBuilder secondAnswer = createClientBuilder(() -> "Goodbye!");
-        try (MockedStatic<CachingHttpClientBuilder> httpClientBuilder = mockStatic(CachingHttpClientBuilder.class)) {
-            httpClientBuilder.when(CachingHttpClientBuilder::create).thenReturn(secondAnswer);
+        final HttpClientBuilder secondAnswer = createClientBuilder(() -> "Goodbye!");
+        try (MockedStatic<HttpClientBuilder> httpClientBuilder = mockStatic(HttpClientBuilder.class)) {
+            httpClientBuilder.when(HttpClientBuilder::create).thenReturn(secondAnswer);
             createMojo(mojo -> setVariableValueToObject(mojo, "overwrite", true)).execute();
         }
 
@@ -289,7 +284,7 @@ public class WGetMojoTest {
 
         CountDownLatch firstMojoStarted = new CountDownLatch(1), secondMojoFinished = new CountDownLatch(1);
         Arrays.asList(CompletableFuture.runAsync(() -> {
-                    CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> {
+                    HttpClientBuilder clientBuilder = createClientBuilder(() -> {
                         firstMojoStarted.countDown();
                         try {
                             // waiting till we're sure the second mojo has finished
@@ -299,17 +294,17 @@ public class WGetMojoTest {
                         }
                         return "foo";
                     });
-                    try (MockedStatic<CachingHttpClientBuilder> builder = mockStatic(CachingHttpClientBuilder.class)) {
-                        builder.when(CachingHttpClientBuilder::create).thenReturn(clientBuilder);
+                    try (MockedStatic<HttpClientBuilder> builder = mockStatic(HttpClientBuilder.class)) {
+                        builder.when(HttpClientBuilder::create).thenReturn(clientBuilder);
                         firstMojo.execute();
                     } catch (MojoExecutionException | MojoFailureException e) {
                         throw new RuntimeException(e);
                     }
                 }),
                 CompletableFuture.runAsync(() -> {
-                    CachingHttpClientBuilder clientBuilder = createClientBuilder(() -> "bar");
-                    try (MockedStatic<CachingHttpClientBuilder> builder = mockStatic(CachingHttpClientBuilder.class)) {
-                        builder.when(CachingHttpClientBuilder::create).thenReturn(clientBuilder);
+                    HttpClientBuilder clientBuilder = createClientBuilder(() -> "bar");
+                    try (MockedStatic<HttpClientBuilder> builder = mockStatic(HttpClientBuilder.class)) {
+                        builder.when(HttpClientBuilder::create).thenReturn(clientBuilder);
                         // waiting till we're sure the first mojo has started
                         assert firstMojoStarted.await(1, SECONDS);
                         secondMojo.execute();
@@ -523,7 +518,7 @@ public class WGetMojoTest {
      * if the signature is incorrect.
      */
     @Test
-    public void testWrongSignatures() throws MojoExecutionException, MojoFailureException, IOException {
+    public void testWrongSignatures() {
         this.wireMock.stubFor(get(anyUrl()).willReturn(ok("Hello, world!\n")));
         Arrays.stream(new String[]{ "md5", "sha1", "sha256", "sha512" }).forEach(key -> {
             try {
@@ -725,7 +720,7 @@ public class WGetMojoTest {
     @Test
     public void testShouldCacheLargeFiles() throws Exception {
         // first mojo will get a cache miss, with a ridiculously large content length
-        final CachingHttpClientBuilder firstAnswer = createClientBuilderForResponse(() ->
+        final HttpClientBuilder firstAnswer = createClientBuilderForResponse(() ->
                 new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "Ok") {{
                     try {
                         setEntity(new StringEntity("Hello, world!\n"));
@@ -735,15 +730,15 @@ public class WGetMojoTest {
                     }
                 }});
 
-        try (MockedStatic<CachingHttpClientBuilder> httpClientBuilder = mockStatic(CachingHttpClientBuilder.class)) {
-            httpClientBuilder.when(CachingHttpClientBuilder::create).thenReturn(firstAnswer);
+        try (MockedStatic<HttpClientBuilder> httpClientBuilder = mockStatic(HttpClientBuilder.class)) {
+            httpClientBuilder.when(HttpClientBuilder::create).thenReturn(firstAnswer);
             createMojo(mojo -> {}).execute();
         }
 
         // now, let's try to read that from cache – we should get the response from cache and not from the resource
-        final CachingHttpClientBuilder secondAnswer = createClientBuilder(() -> "Goodbye!");
-        try (MockedStatic<CachingHttpClientBuilder> httpClientBuilder = mockStatic(CachingHttpClientBuilder.class)) {
-            httpClientBuilder.when(CachingHttpClientBuilder::create).thenReturn(secondAnswer);
+        final HttpClientBuilder secondAnswer = createClientBuilder(() -> "Goodbye!");
+        try (MockedStatic<HttpClientBuilder> httpClientBuilder = mockStatic(HttpClientBuilder.class)) {
+            httpClientBuilder.when(HttpClientBuilder::create).thenReturn(secondAnswer);
             createMojo(mojo -> setVariableValueToObject(mojo, "overwrite", true)).execute();
         }
 
