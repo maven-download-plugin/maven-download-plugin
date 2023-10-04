@@ -15,8 +15,6 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
-import com.googlecode.download.maven.plugin.internal.cache.FileBackedIndex;
-import com.googlecode.download.maven.plugin.internal.cache.FileIndexResourceFactory;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -31,12 +29,7 @@ import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.BasicAuthCache;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.cache.CacheConfig;
-import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
-import org.apache.http.impl.client.cache.CachingHttpClients;
+import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
 import org.apache.maven.execution.MavenSession;
@@ -51,10 +44,8 @@ import java.io.OutputStream;
 import java.net.ProxySelector;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.NotDirectoryException;
 import java.util.List;
 
-import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.Objects.requireNonNull;
 import static org.apache.maven.shared.utils.StringUtils.isNotBlank;
 
@@ -62,15 +53,11 @@ import static org.apache.maven.shared.utils.StringUtils.isNotBlank;
  * File requester that can download resources over HTTP transport using Apache HttpClient 4.x.
  */
 public class HttpFileRequester {
-    public static final int HEURISTIC_DEFAULT_LIFETIME = 364 * 3600 * 24;
-
     private ProgressReport progressReport;
     private int connectTimeout;
     private int socketTimeout;
     private HttpRoutePlanner routePlanner;
     private CredentialsProvider credentialsProvider;
-    private File cacheDir;
-    private Log log;
     private boolean redirectsEnabled;
     private URI uri;
     private boolean preemptiveAuth;
@@ -80,7 +67,6 @@ public class HttpFileRequester {
 
     public static class Builder {
         private ProgressReport progressReport;
-        private File cacheDir;
         private int connectTimeout = 3000;
         private int socketTimeout = 3000;
         private URI uri;
@@ -105,11 +91,6 @@ public class HttpFileRequester {
 
         public Builder withProgressReport(ProgressReport progressReport) {
             this.progressReport = progressReport;
-            return this;
-        }
-
-        public Builder withCacheDir(File cacheDir) {
-            this.cacheDir = cacheDir;
             return this;
         }
 
@@ -194,10 +175,8 @@ public class HttpFileRequester {
             instance.progressReport = this.progressReport;
             instance.connectTimeout = this.connectTimeout;
             instance.socketTimeout = this.socketTimeout;
-            instance.cacheDir = this.cacheDir;
             instance.redirectsEnabled = this.redirectsEnabled;
             instance.preemptiveAuth = this.preemptiveAuth;
-            instance.log = requireNonNull(this.log);
 
             instance.credentialsProvider = new BasicCredentialsProvider();
             if (isNotBlank(this.serverId)) {
@@ -255,8 +234,7 @@ public class HttpFileRequester {
      * @param headers list of headers
      */
     public void download(final File outputFile, List<Header> headers) throws IOException {
-        final CachingHttpClientBuilder httpClientBuilder = createHttpClientBuilder();
-        try (final CloseableHttpClient httpClient = httpClientBuilder.build()) {
+        try (final CloseableHttpClient httpClient = createHttpClientBuilder().build()) {
             final HttpCacheContext clientContext = HttpCacheContext.create();
             clientContext.setCredentialsProvider(this.credentialsProvider);
 
@@ -268,7 +246,7 @@ public class HttpFileRequester {
 
             final HttpGet httpGet = new HttpGet(this.uri);
             headers.forEach(httpGet::setHeader);
-            httpClient.execute(httpGet, response -> handleResponse(this.uri, outputFile, clientContext, response),
+            httpClient.execute(httpGet, response -> handleResponse(this.uri, outputFile, response),
                     clientContext);
         }
     }
@@ -277,12 +255,11 @@ public class HttpFileRequester {
      * Handles response from the server
      * @param uri request uri
      * @param outputFile output file for the download request
-     * @param clientContext {@linkplain HttpCacheContext} object
      * @param response response from the server
      * @return original response object
      * @throws IOException thrown if I/O operations don't succeed
      */
-    private Object handleResponse( URI uri, File outputFile, HttpCacheContext clientContext, HttpResponse response )
+    private Object handleResponse( URI uri, File outputFile, HttpResponse response )
             throws IOException {
         if (response.getStatusLine().getStatusCode() >= 400) {
             throw new DownloadFailureException(response.getStatusLine().getStatusCode(),
@@ -295,63 +272,34 @@ public class HttpFileRequester {
         }
         final HttpEntity entity = response.getEntity();
         if (entity != null) {
-            switch ( clientContext.getCacheResponseStatus()) {
-                case CACHE_HIT:
-                case CACHE_MODULE_RESPONSE:
-                case VALIDATED:
-                    log.debug("Copying file from cache");
-                    Files.copy(entity.getContent(), outputFile.toPath(), REPLACE_EXISTING);
-                    break;
-                default:
-                    progressReport.initiate( uri, entity.getContentLength());
-                    byte[] tmp = new byte[8 * 11024];
-                    try (InputStream in = entity.getContent(); OutputStream out =
-                            Files.newOutputStream( outputFile.toPath())) {
-                        int bytesRead;
-                        while ((bytesRead = in.read(tmp)) != -1) {
-                            out.write(tmp, 0, bytesRead);
-                            progressReport.update(bytesRead);
-                        }
-                        out.flush();
-                        progressReport.completed();
+            progressReport.initiate( uri, entity.getContentLength());
+            byte[] tmp = new byte[8 * 11024];
+            try (InputStream in = entity.getContent(); OutputStream out =
+                    Files.newOutputStream( outputFile.toPath())) {
+                int bytesRead;
+                while ((bytesRead = in.read(tmp)) != -1) {
+                    out.write(tmp, 0, bytesRead);
+                    progressReport.update(bytesRead);
+                }
+                out.flush();
+                progressReport.completed();
 
-                    } catch (IOException ex) {
-                        progressReport.error(ex);
-                        throw ex;
-                    }
-                    break;
+            } catch (IOException ex) {
+                progressReport.error(ex);
+                throw ex;
             }
         }
         return entity;
     }
 
-    private CachingHttpClientBuilder createHttpClientBuilder() throws NotDirectoryException {
-        final RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectTimeout(connectTimeout)
-                .setSocketTimeout(socketTimeout)
-                .setRedirectsEnabled(redirectsEnabled)
-                .build();
-        final CachingHttpClientBuilder httpClientBuilder =
-                (CachingHttpClientBuilder) CachingHttpClients.custom()
+    private HttpClientBuilder createHttpClientBuilder() {
+        return HttpClients.custom()
                         .setDefaultCredentialsProvider(this.credentialsProvider)
                         .setRoutePlanner(routePlanner)
-                        .setDefaultRequestConfig(requestConfig)
-                ;
-        if (cacheDir != null) {
-            CacheConfig config = CacheConfig.custom()
-                    .setHeuristicDefaultLifetime(HEURISTIC_DEFAULT_LIFETIME)
-                    .setHeuristicCachingEnabled(true)
-                    .setMaxObjectSize(Long.MAX_VALUE)
-                    .setMaxCacheEntries(Integer.MAX_VALUE)
-                    .build();
-            httpClientBuilder
-                    .setCacheDir(this.cacheDir)
-                    .setCacheConfig(config)
-                    .setResourceFactory(new FileIndexResourceFactory(this.cacheDir.toPath()))
-                    .setHttpCacheStorage(new FileBackedIndex(this.cacheDir.toPath(), this.log))
-                    .setDeleteCache(false);
-        }
-
-        return httpClientBuilder;
+                        .setDefaultRequestConfig(RequestConfig.custom()
+                                .setConnectTimeout(connectTimeout)
+                                .setSocketTimeout(socketTimeout)
+                                .setRedirectsEnabled(redirectsEnabled)
+                                .build());
     }
 }

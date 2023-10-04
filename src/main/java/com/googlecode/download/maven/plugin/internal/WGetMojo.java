@@ -14,9 +14,16 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
 import org.apache.http.Header;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -42,6 +49,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,11 +71,6 @@ import static org.codehaus.plexus.util.StringUtils.isNotBlank;
  */
 @Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
 public class WGetMojo extends AbstractMojo {
-    /**
-     * A map of file locks by files to be downloaded.
-     * Ensures exclusive access to a target file.
-     */
-    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
 
     /**
      * Represent the URL to fetch information from.
@@ -276,6 +279,38 @@ public class WGetMojo extends AbstractMojo {
     @Parameter(property = "preemptiveAuth", defaultValue = "false")
     private boolean preemptiveAuth;
 
+    private static final PoolingHttpClientConnectionManager CONN_POOL;
+
+    /**
+     * A map of file caches by their location paths.
+     * Ensures one cache instance per path and enables safe execution in parallel
+     * builds against the same cache.
+     */
+    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
+
+    /**
+     * A map of file locks by files to be downloaded.
+     * Ensures exclusive access to a target file.
+     */
+    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
+
+    static {
+        CONN_POOL = new PoolingHttpClientConnectionManager(
+                RegistryBuilder.<ConnectionSocketFactory>create()
+                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                        .register("https", new SSLConnectionSocketFactory(
+                                SSLContexts.createSystemDefault(),
+                                SSLProtocols.supported(),
+                                null,
+                                SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
+                        .build(),
+                null,
+                null,
+                null,
+                1,
+                TimeUnit.MINUTES);
+    }
+
     /**
      * Method call when the mojo is executed for the first time.
      *
@@ -309,10 +344,7 @@ public class WGetMojo extends AbstractMojo {
             throw new MojoFailureException("retries must be at least 1");
         }
 
-        // PREPARE
-        if (this.outputFileName == null) {
-            this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
-        }
+        final Optional<DownloadCache> cache;
         if (!this.skipCache) {
             if (this.cacheDirectory == null) {
                 this.cacheDirectory = new File(this.session.getLocalRepository()
@@ -322,11 +354,29 @@ public class WGetMojo extends AbstractMojo {
                         + this.cacheDirectory.getAbsolutePath()));
             }
             getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
-
+            cache = Optional.of(DOWNLOAD_CACHES.computeIfAbsent(
+                    cacheDirectory.getAbsolutePath(),
+                    directory -> new DownloadCache(this.cacheDirectory, getLog())));
         } else {
             getLog().debug("Cache is skipped");
+            cache = Optional.empty();
         }
-        this.outputDirectory.mkdirs();
+
+        if (!outputDirectory.exists())
+        {
+            if (!outputDirectory.mkdirs())
+            {
+                throw new MojoFailureException("Could not create output directory " + outputDirectory.getAbsolutePath());
+            }
+        }
+        else if (!outputDirectory.isDirectory()) {
+            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
+        }
+
+        // PREPARE
+        if (this.outputFileName == null) {
+            this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
+        }
         final File outputFile = new File(this.outputDirectory, this.outputFileName);
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
@@ -375,45 +425,54 @@ public class WGetMojo extends AbstractMojo {
             }
 
             if (!haveFile) {
-                if (this.session.getRepositorySession().isOffline()) {
-                    if (this.failOnError) {
-                        throw new MojoExecutionException("No file in cache and maven is in offline mode");
-                    } else {
-                        getLog().warn("Ignoring download failure.");
-                    }
-                }
-                boolean done = false;
-                for (int retriesLeft = this.retries; !done && retriesLeft > 0; --retriesLeft) {
-                    try {
-                        this.doGet(outputFile);
-                        checksums.validate(outputFile);
-                        done = true;
-                    } catch (DownloadFailureException ex) {
-                        // treating HTTP codes >= 500 as transient and thus always retriable
-                        if (this.failOnError && ex.getHttpCode() < 500) {
-                            throw new MojoExecutionException(ex.getMessage(), ex);
-                        } else {
-                            getLog().warn(ex.getMessage());
-                        }
-                    } catch (IOException ex) {
+                final Optional<File> cachedFile = cache.map(c -> c.getArtifact(this.uri, checksums));
+                if (cachedFile.map(File::exists).orElse(false)) {
+                    getLog().debug("Got from cache: " + cachedFile.get().getAbsolutePath());
+                    Files.copy(cachedFile.get().toPath(), outputFile.toPath());
+                } else {
+                    if (this.session.getRepositorySession().isOffline()) {
                         if (this.failOnError) {
-                            throw new MojoExecutionException(ex.getMessage(), ex);
+                            throw new MojoExecutionException("No file in cache and maven is in offline mode");
                         } else {
-                            getLog().warn(ex.getMessage());
+                            getLog().warn("Ignoring download failure.");
+                        }
+                    }
+                    boolean done = false;
+                    for (int retriesLeft = this.retries; !done && retriesLeft > 0; --retriesLeft) {
+                        try {
+                            this.doGet(outputFile);
+                            checksums.validate(outputFile);
+                            done = true;
+                        } catch (DownloadFailureException ex) {
+                            // treating HTTP codes >= 500 as transient and thus always retriable
+                            if (this.failOnError && ex.getHttpCode() < 500) {
+                                throw new MojoExecutionException(ex.getMessage(), ex);
+                            } else {
+                                getLog().warn(ex.getMessage());
+                            }
+                        } catch (IOException ex) {
+                            if (this.failOnError) {
+                                throw new MojoExecutionException(ex.getMessage(), ex);
+                            } else {
+                                getLog().warn(ex.getMessage());
+                            }
+                        }
+                        if (!done) {
+                            getLog().warn("Retrying (" + (retriesLeft - 1) + " more)");
                         }
                     }
                     if (!done) {
-                        getLog().warn("Retrying (" + (retriesLeft - 1) + " more)");
+                        if (this.failOnError) {
+                            throw new MojoFailureException("Could not get content after " + this.retries + " failed attempts.");
+                        } else {
+                            getLog().warn("Ignoring download failure(s).");
+                            return;
+                        }
                     }
                 }
-                if (!done) {
-                    if (this.failOnError) {
-                        throw new MojoFailureException("Could not get content after " + this.retries + " failed attempts.");
-                    } else {
-                        getLog().warn("Ignoring download failure(s).");
-                        return;
-                    }
-                }
+            }
+            if (cache.isPresent()) {
+                cache.get().install(this.uri, outputFile, checksums);
             }
             if (this.unpack) {
                 unpack(outputFile);
@@ -484,10 +543,6 @@ public class WGetMojo extends AbstractMojo {
         Optional.ofNullable(this.session.getRepositorySession().getAuthenticationSelector())
                 .map(selector -> selector.getAuthentication(repository))
                 .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
-
-        if (!this.skipCache) {
-            fileRequesterBuilder.withCacheDir(this.cacheDirectory);
-        }
 
         final HttpFileRequester fileRequester = fileRequesterBuilder
                 .withProgressReport(this.session.getSettings().isInteractiveMode()

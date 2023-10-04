@@ -4,7 +4,6 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import org.apache.http.auth.AUTH;
 import org.apache.maven.execution.MavenExecutionRequest;
 import org.apache.maven.execution.MavenSession;
-import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugin.logging.SystemStreamLog;
 import org.junit.Before;
@@ -42,7 +41,7 @@ public class HttpFileRequesterTest {
     private final static String OUTPUT_FILE_NAME = "output-file";
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         this.outputFile = new File(this.outputDirectory.getRoot(), OUTPUT_FILE_NAME);
     }
 
@@ -61,7 +60,6 @@ public class HttpFileRequesterTest {
                 .withUri(new URI(this.wireMock.baseUrl()))
                 .withRedirectsEnabled(false)
                 .withPreemptiveAuth(false)
-                .withCacheDir(null)
                 .withLog(LOG)
                 .withMavenSession(new MavenSessionStub());
     }
