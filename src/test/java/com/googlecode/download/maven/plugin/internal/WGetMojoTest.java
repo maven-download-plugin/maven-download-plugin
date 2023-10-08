@@ -893,7 +893,9 @@ public class WGetMojoTest {
                             gzOs.write(uncompressedBytes, 0, uncompressedBytes.length);
                             gzOs.finish();
 
-                            setEntity(new ByteArrayEntity(os.toByteArray()));
+                            setEntity(new ByteArrayEntity(os.toByteArray()) {{
+                                setContentEncoding("gzip");
+                            }});
                             setHeader(HttpHeaders.CONTENT_ENCODING, "gzip");
                         } catch (IOException e) {
                             throw new RuntimeException(e);
