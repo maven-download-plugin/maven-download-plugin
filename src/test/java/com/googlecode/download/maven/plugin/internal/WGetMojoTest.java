@@ -882,9 +882,11 @@ public class WGetMojoTest {
         final String unencryptedResponse = "Hello\n";
         prepareReadingFromCache(() -> createClientBuilderForResponse(request ->
                 new BasicHttpResponse(HttpVersion.HTTP_1_1, HttpStatus.SC_OK, "Ok") {{
-                    if (Arrays.stream(request.getHeaders(HttpHeaders.ACCEPT_ENCODING))
+                    // fail if gzip encoding is not accepted
+                    assertThat(Arrays.stream(request.getHeaders(HttpHeaders.ACCEPT_ENCODING))
                             .flatMap(h -> Arrays.stream(h.getElements()))
-                            .anyMatch(he -> "gzip".equalsIgnoreCase(he.getName()))) {
+                            .anyMatch(he -> "gzip".equalsIgnoreCase(he.getName())), is(true));
+
                         try (ByteArrayOutputStream os = new ByteArrayOutputStream();
                              GZIPOutputStream gzOs = new GZIPOutputStream(os)) {
                             final byte[] uncompressedBytes = unencryptedResponse.getBytes();
@@ -896,13 +898,6 @@ public class WGetMojoTest {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    } else {
-                        try {
-                            setEntity(new StringEntity(unencryptedResponse));
-                        } catch (UnsupportedEncodingException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
                 }}), __ -> {});
         // now, let's read that file
         assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
