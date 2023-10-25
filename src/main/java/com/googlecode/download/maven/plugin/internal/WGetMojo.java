@@ -52,6 +52,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 import static org.codehaus.plexus.util.StringUtils.isNotBlank;
 
@@ -61,7 +62,7 @@ import static org.codehaus.plexus.util.StringUtils.isNotBlank;
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
+@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false, threadSafe = true)
 public class WGetMojo extends AbstractMojo {
     /**
      * A map of file locks by files to be downloaded.
@@ -276,6 +277,19 @@ public class WGetMojo extends AbstractMojo {
     @Parameter(property = "preemptiveAuth", defaultValue = "false")
     private boolean preemptiveAuth;
 
+    
+    private void adjustOutputDirectory() throws MojoExecutionException {
+    	if (this.outputDirectory.getPath().contains("${")) {
+			getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
+			this.outputDirectory = new File(".");
+			try {
+				getLog().info("Adjusting outputDirectory to " +this.outputDirectory.getCanonicalPath());
+			} catch (IOException e) {
+				 throw new MojoExecutionException("Current directory could not be reolved. This should neven happen.");
+			}
+		}
+	}
+    
     /**
      * Method call when the mojo is executed for the first time.
      *
@@ -285,7 +299,7 @@ public class WGetMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
-            getLog().info("maven-download-plugin:wget skipped");
+        	getLog().info("maven-download-plugin:wget skipped");
             return;
         }
 
@@ -310,6 +324,7 @@ public class WGetMojo extends AbstractMojo {
         }
 
         // PREPARE
+        adjustOutputDirectory();
         if (this.outputFileName == null) {
             this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
         }
