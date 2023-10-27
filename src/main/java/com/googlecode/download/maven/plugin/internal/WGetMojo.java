@@ -306,7 +306,7 @@ public class WGetMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
-        	getLog().info("maven-download-plugin:wget skipped");
+            getLog().info("maven-download-plugin:wget skipped");
             return;
         }
 
