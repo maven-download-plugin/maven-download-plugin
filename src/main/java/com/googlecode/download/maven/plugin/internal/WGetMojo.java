@@ -278,6 +278,13 @@ public class WGetMojo extends AbstractMojo {
     private boolean preemptiveAuth;
 
     
+    /**
+     * Ensures that the output directory does not contain unresolved path variables, i.e. when running without a pom.xml.
+     * If unresolved path variables are detected, set the output directory to the current working directory.
+     * 
+     * @since 1.7.2
+     * @throws MojoExecutionException If the current working directory could not be resolved. This should never happen.
+     */
     private void adjustOutputDirectory() throws MojoExecutionException {
       if (this.outputDirectory.getPath().contains("${")) {
         getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
@@ -285,7 +292,7 @@ public class WGetMojo extends AbstractMojo {
         try {
           getLog().info("Adjusting outputDirectory to " + this.outputDirectory.getCanonicalPath());
         } catch (IOException e) {
-          throw new MojoExecutionException("Current directory could not be reolved. This should neven happen.");
+          throw new MojoExecutionException("Current working directory could not be resolved. This should never happen.");
         }
       }
     }
