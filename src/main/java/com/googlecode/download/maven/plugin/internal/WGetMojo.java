@@ -279,16 +279,16 @@ public class WGetMojo extends AbstractMojo {
 
     
     private void adjustOutputDirectory() throws MojoExecutionException {
-    	if (this.outputDirectory.getPath().contains("${")) {
-			getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
-			this.outputDirectory = new File(".");
-			try {
-				getLog().info("Adjusting outputDirectory to " +this.outputDirectory.getCanonicalPath());
-			} catch (IOException e) {
-				 throw new MojoExecutionException("Current directory could not be reolved. This should neven happen.");
-			}
-		}
-	}
+      if (this.outputDirectory.getPath().contains("${")) {
+        getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
+        this.outputDirectory = new File(".");
+        try {
+          getLog().info("Adjusting outputDirectory to " + this.outputDirectory.getCanonicalPath());
+        } catch (IOException e) {
+          throw new MojoExecutionException("Current directory could not be reolved. This should neven happen.");
+        }
+      }
+    }
     
     /**
      * Method call when the mojo is executed for the first time.
