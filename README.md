@@ -64,6 +64,10 @@ It provides caching and checksum verification.
 </plugin>
 ```
 
+You can also run it without a pom.xml i.e. 
+
+`mvn -Ddownload.url=https://example.com -Ddownload.outputDirectory=. -Ddownload.outputFileName=example.html com.googlecode.maven-download-plugin:download-maven-plugin:1.7.2:wget`
+
 ## Requirements
 
 Starting from version 1.6.9, the plugin requires Maven version 3.2.5 or above.

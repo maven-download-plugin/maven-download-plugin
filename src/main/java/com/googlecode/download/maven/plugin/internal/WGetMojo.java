@@ -60,6 +60,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 import static org.codehaus.plexus.util.StringUtils.isNotBlank;
 
@@ -69,7 +70,7 @@ import static org.codehaus.plexus.util.StringUtils.isNotBlank;
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
+@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false, threadSafe = true)
 public class WGetMojo extends AbstractMojo {
 
     /**
@@ -311,6 +312,26 @@ public class WGetMojo extends AbstractMojo {
                 TimeUnit.MINUTES);
     }
 
+
+    /**
+     * Ensures that the output directory does not contain unresolved path variables, i.e. when running without a pom.xml.
+     * If unresolved path variables are detected, set the output directory to the current working directory.
+     *
+     * @since 1.7.2
+     * @throws MojoExecutionException If the current working directory could not be resolved. This should never happen.
+     */
+    private void adjustOutputDirectory() throws MojoExecutionException {
+      if (this.outputDirectory.getPath().contains("${")) {
+        getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
+        this.outputDirectory = new File(".");
+        try {
+          getLog().info("Adjusting outputDirectory to " + this.outputDirectory.getCanonicalPath());
+        } catch (IOException e) {
+          throw new MojoExecutionException("Current working directory could not be resolved. This should never happen.");
+        }
+      }
+    }
+
     /**
      * Method call when the mojo is executed for the first time.
      *
@@ -362,14 +383,8 @@ public class WGetMojo extends AbstractMojo {
             cache = Optional.empty();
         }
 
-        if (outputDirectory.exists() && !outputDirectory.isDirectory())
-        {
-            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
-        } else {
-            outputDirectory.mkdirs();
-        }
-
         // PREPARE
+        adjustOutputDirectory();
         if (this.outputFileName == null) {
             this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
         }
