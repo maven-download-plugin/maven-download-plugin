@@ -385,6 +385,12 @@ public class WGetMojo extends AbstractMojo {
 
         // PREPARE
         adjustOutputDirectory();
+        if (outputDirectory.exists() && !outputDirectory.isDirectory())
+        {
+            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
+        } else {
+            outputDirectory.mkdirs();
+        }
         if (this.outputFileName == null) {
             this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
         }
