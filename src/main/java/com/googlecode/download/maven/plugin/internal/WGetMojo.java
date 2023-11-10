@@ -362,15 +362,11 @@ public class WGetMojo extends AbstractMojo {
             cache = Optional.empty();
         }
 
-        if (!outputDirectory.exists())
+        if (outputDirectory.exists() && !outputDirectory.isDirectory())
         {
-            if (!outputDirectory.mkdirs())
-            {
-                throw new MojoFailureException("Could not create output directory " + outputDirectory.getAbsolutePath());
-            }
-        }
-        else if (!outputDirectory.isDirectory()) {
             throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
+        } else {
+            outputDirectory.mkdirs();
         }
 
         // PREPARE
