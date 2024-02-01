@@ -187,6 +187,7 @@ public class HttpFileRequester {
             instance.socketTimeout = this.socketTimeout;
             instance.redirectsEnabled = this.redirectsEnabled;
             instance.preemptiveAuth = this.preemptiveAuth;
+            instance.insecure = this.insecure;
 
             instance.credentialsProvider = new BasicCredentialsProvider();
             if (isNotBlank(this.serverId)) {
