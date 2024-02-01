@@ -14,9 +14,16 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
 import org.apache.http.Header;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicHeader;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -42,6 +49,7 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +60,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import static java.lang.String.format;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 import static org.codehaus.plexus.util.StringUtils.isNotBlank;
 
@@ -61,13 +70,8 @@ import static org.codehaus.plexus.util.StringUtils.isNotBlank;
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = true, threadSafe = true)
+@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false, threadSafe = true)
 public class WGetMojo extends AbstractMojo {
-    /**
-     * A map of file locks by files to be downloaded.
-     * Ensures exclusive access to a target file.
-     */
-    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
 
     /**
      * Represent the URL to fetch information from.
@@ -156,7 +160,7 @@ public class WGetMojo extends AbstractMojo {
     /**
      * How many retries for a download
      */
-    @Parameter(defaultValue = "2")
+    @Parameter(property = "download.retries", defaultValue = "2")
     private int retries;
 
     /**
@@ -216,10 +220,12 @@ public class WGetMojo extends AbstractMojo {
     private boolean checkSignature;
 
     /**
-     * Whether to follow redirects (302)
+     * <p>Whether to follow redirects (301 Moved Permanently, 302 Found, 303 See Other).</p>
+     * <p>If this option is disabled and the returned resource returns a redirect, the plugin will report an error
+     * and exit unless {@link #failOnError} is {@code false}.</p>
      */
-    @Parameter(property = "download.plugin.followRedirects", defaultValue = "false")
-    private boolean followRedirects;
+    @Parameter(property = "download.plugin.followRedirects", defaultValue = "true")
+    private boolean followRedirects = true;
 
     /**
      * A list of additional HTTP headers to send with the request
@@ -274,6 +280,58 @@ public class WGetMojo extends AbstractMojo {
     @Parameter(property = "preemptiveAuth", defaultValue = "false")
     private boolean preemptiveAuth;
 
+    private static final PoolingHttpClientConnectionManager CONN_POOL;
+
+    /**
+     * A map of file caches by their location paths.
+     * Ensures one cache instance per path and enables safe execution in parallel
+     * builds against the same cache.
+     */
+    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
+
+    /**
+     * A map of file locks by files to be downloaded.
+     * Ensures exclusive access to a target file.
+     */
+    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
+
+    static {
+        CONN_POOL = new PoolingHttpClientConnectionManager(
+                RegistryBuilder.<ConnectionSocketFactory>create()
+                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                        .register("https", new SSLConnectionSocketFactory(
+                                SSLContexts.createSystemDefault(),
+                                SSLProtocols.supported(),
+                                null,
+                                SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
+                        .build(),
+                null,
+                null,
+                null,
+                1,
+                TimeUnit.MINUTES);
+    }
+
+
+    /**
+     * Ensures that the output directory does not contain unresolved path variables, i.e. when running without a pom.xml.
+     * If unresolved path variables are detected, set the output directory to the current working directory.
+     *
+     * @since 1.7.2
+     * @throws MojoExecutionException If the current working directory could not be resolved. This should never happen.
+     */
+    private void adjustOutputDirectory() throws MojoExecutionException {
+      if (this.outputDirectory.getPath().contains("${")) {
+        getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
+        this.outputDirectory = new File(".");
+        try {
+          getLog().info("Adjusting outputDirectory to " + this.outputDirectory.getCanonicalPath());
+        } catch (IOException e) {
+          throw new MojoExecutionException("Current working directory could not be resolved. This should never happen.");
+        }
+      }
+    }
+
     /**
      * If {@code true}, it will turn off any verification of the SSL certificate
      *
@@ -315,14 +373,7 @@ public class WGetMojo extends AbstractMojo {
             throw new MojoFailureException("retries must be at least 1");
         }
 
-        // PREPARE
-        if (this.outputFileName == null) {
-            try {
-                this.outputFileName = new File(this.uri.toURL().getPath()).getName();
-            } catch (Exception ex) {
-                throw new MojoExecutionException("Invalid URL", ex);
-            }
-        }
+        final Optional<DownloadCache> cache;
         if (!this.skipCache) {
             if (this.cacheDirectory == null) {
                 this.cacheDirectory = new File(this.session.getLocalRepository()
@@ -332,11 +383,25 @@ public class WGetMojo extends AbstractMojo {
                         + this.cacheDirectory.getAbsolutePath()));
             }
             getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
-
+            cache = Optional.of(DOWNLOAD_CACHES.computeIfAbsent(
+                    cacheDirectory.getAbsolutePath(),
+                    directory -> new DownloadCache(this.cacheDirectory, getLog())));
         } else {
             getLog().debug("Cache is skipped");
+            cache = Optional.empty();
         }
-        this.outputDirectory.mkdirs();
+
+        // PREPARE
+        adjustOutputDirectory();
+        if (outputDirectory.exists() && !outputDirectory.isDirectory())
+        {
+            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
+        } else {
+            outputDirectory.mkdirs();
+        }
+        if (this.outputFileName == null) {
+            this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
+        }
         final File outputFile = new File(this.outputDirectory, this.outputFileName);
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
@@ -385,35 +450,54 @@ public class WGetMojo extends AbstractMojo {
             }
 
             if (!haveFile) {
-                if (this.session.getRepositorySession().isOffline()) {
-                    if (this.failOnError) {
-                        throw new MojoExecutionException("No file in cache and maven is in offline mode");
-                    } else {
-                        getLog().warn("Ignoring download failure.");
+                final Optional<File> cachedFile = cache.map(c -> c.getArtifact(this.uri, checksums));
+                if (cachedFile.map(File::exists).orElse(false)) {
+                    getLog().debug("Got from cache: " + cachedFile.get().getAbsolutePath());
+                    Files.copy(cachedFile.get().toPath(), outputFile.toPath());
+                } else {
+                    if (this.session.getRepositorySession().isOffline()) {
+                        if (this.failOnError) {
+                            throw new MojoExecutionException("No file in cache and maven is in offline mode");
+                        } else {
+                            getLog().warn("Ignoring download failure.");
+                        }
                     }
-                }
-                boolean done = false;
-                while (!done && this.retries > 0) {
-                    try {
-                        this.doGet(outputFile);
-                        checksums.validate(outputFile);
-                        done = true;
-                    } catch (IOException ex) {
-                        getLog().warn("Could not get content", ex);
-                        this.retries--;
-                        if (this.retries > 0) {
-                            getLog().warn("Retrying (" + this.retries + " more)");
+                    boolean done = false;
+                    for (int retriesLeft = this.retries; !done && retriesLeft > 0; --retriesLeft) {
+                        try {
+                            this.doGet(outputFile);
+                            checksums.validate(outputFile);
+                            done = true;
+                        } catch (DownloadFailureException ex) {
+                            // treating HTTP codes >= 500 as transient and thus always retriable
+                            if (this.failOnError && ex.getHttpCode() < 500) {
+                                throw new MojoExecutionException(ex.getMessage(), ex);
+                            } else {
+                                getLog().warn(ex.getMessage());
+                            }
+                        } catch (IOException ex) {
+                            if (this.failOnError) {
+                                throw new MojoExecutionException(ex.getMessage(), ex);
+                            } else {
+                                getLog().warn(ex.getMessage());
+                            }
+                        }
+                        if (!done) {
+                            getLog().warn("Retrying (" + (retriesLeft - 1) + " more)");
+                        }
+                    }
+                    if (!done) {
+                        if (this.failOnError) {
+                            throw new MojoFailureException("Could not get content after " + this.retries + " failed attempts.");
+                        } else {
+                            getLog().warn("Ignoring download failure(s).");
+                            return;
                         }
                     }
                 }
-                if (!done) {
-                    if (this.failOnError) {
-                        throw new MojoFailureException("Could not get content");
-                    } else {
-                        getLog().warn("Ignoring download failure.");
-                        return;
-                    }
-                }
+            }
+            if (cache.isPresent()) {
+                cache.get().install(this.uri, outputFile, checksums);
             }
             if (this.unpack) {
                 unpack(outputFile);
@@ -421,6 +505,8 @@ public class WGetMojo extends AbstractMojo {
             } else {
             	this.buildContext.refresh(outputFile);
             }
+        } catch (MojoExecutionException e) {
+            throw e;
         } catch (IOException ex) {
             throw new MojoExecutionException("IO Error: ", ex);
         } catch (NoSuchArchiverException e) {
@@ -433,7 +519,6 @@ public class WGetMojo extends AbstractMojo {
             }
         }
     }
-
 
     private void unpack(File outputFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
@@ -483,10 +568,6 @@ public class WGetMojo extends AbstractMojo {
         Optional.ofNullable(this.session.getRepositorySession().getAuthenticationSelector())
                 .map(selector -> selector.getAuthentication(repository))
                 .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
-
-        if (!this.skipCache) {
-            fileRequesterBuilder.withCacheDir(this.cacheDirectory);
-        }
 
         final HttpFileRequester fileRequester = fileRequesterBuilder
                 .withProgressReport(this.session.getSettings().isInteractiveMode()

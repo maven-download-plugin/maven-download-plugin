@@ -1,4 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <!-- Build description -->
@@ -17,29 +17,30 @@
 
     <!-- Build plugins and extensions -->
     <build>
-        <plugins>
-            <plugin>
-                <groupId>@project.groupId@</groupId>
-                <artifactId>@project.artifactId@</artifactId>
-                <version>@project.version@</version>
-                <executions>
-                    <execution>
-                        <phase>generate-resources</phase>
-                        <goals>
-                            <goal>wget</goal>
-                        </goals>
-                        <configuration>
-                            <url>${test.img.file.url}</url>
-                            <outputFileName>test.jpg</outputFileName>
-                            <outputDirectory>${maven.multiModuleProjectDirectory}/target</outputDirectory>
-                            <skipCache>true</skipCache>
-                            <failOnError>false</failOnError>
-                            <runOnlyAtRoot>true</runOnlyAtRoot>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>@project.groupId@</groupId>
+                    <artifactId>@project.artifactId@</artifactId>
+                    <version>@project.version@</version>
+                    <executions>
+                        <execution>
+                            <phase>generate-resources</phase>
+                            <goals>
+                                <goal>wget</goal>
+                            </goals>
+                            <configuration>
+                                <url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.pom</url>
+                                <outputDirectory>${project.basedir}/../target</outputDirectory>
+                                <skipCache>true</skipCache>
+                                <failOnError>false</failOnError>
+                                <runOnlyAtRoot>true</runOnlyAtRoot>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
 
 </project>

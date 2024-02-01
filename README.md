@@ -35,7 +35,7 @@ Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/p
 
 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.6.8:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.8.0:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
 ```
 
 ### "WGet" goal
@@ -45,7 +45,7 @@ It provides caching and checksum verification.
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>download-maven-plugin</artifactId>
-	<version>1.6.8</version>
+	<version>1.8.0</version>
 	<executions>
 		<execution>
 			<id>install-jbpm</id>
@@ -64,9 +64,13 @@ It provides caching and checksum verification.
 </plugin>
 ```
 
+You can also run it without a pom.xml i.e. 
+
+`mvn -Ddownload.url=https://example.com -Ddownload.outputDirectory=. -Ddownload.outputFileName=example.html com.googlecode.maven-download-plugin:download-maven-plugin:1.7.2:wget`
+
 ## Requirements
 
-Starting from version 1.6.9, the plugin requires Maven version 3 or above.
+Starting from version 1.6.9, the plugin requires Maven version 3.2.5 or above.
 
 ## Known issues and workarounds
 
@@ -95,7 +99,7 @@ mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
 ### Generated documentation
 
-See also generated documentation pages [for 1.6.8](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.6.8/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
+See also generated documentation pages [for 1.8.0](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.8.0/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 

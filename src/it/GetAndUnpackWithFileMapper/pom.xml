@@ -1,4 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <!-- Build description -->
@@ -22,12 +22,13 @@
                             <goal>wget</goal>
                         </goals>
                         <configuration>
-                            <url>https://dlcdn.apache.org/maven/maven-3/3.8.6/binaries/apache-maven-3.8.6-bin.zip</url>
+                            <!-- downloading a locally hosted jar archive, containing a "Hello, world!" text -->
+                            <url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.jar</url>
                             <unpack>true</unpack>
                             <fileMappers>
                                 <org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
-                                    <pattern>README\.txt</pattern>
-                                    <replacement>RENAMED.txt</replacement>
+                                    <pattern>hello.txt</pattern>
+                                    <replacement>howdy.txt</replacement>
                                 </org.codehaus.plexus.components.io.filemappers.RegExpFileMapper>
                             </fileMappers>
                         </configuration>

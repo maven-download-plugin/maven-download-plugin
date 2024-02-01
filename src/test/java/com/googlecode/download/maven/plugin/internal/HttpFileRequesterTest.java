@@ -22,7 +22,9 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 import static java.util.Collections.emptyList;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.fail;
 import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
@@ -41,7 +43,7 @@ public class HttpFileRequesterTest {
     private final static String OUTPUT_FILE_NAME = "output-file";
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         this.outputFile = new File(this.outputDirectory.getRoot(), OUTPUT_FILE_NAME);
     }
 
@@ -60,7 +62,6 @@ public class HttpFileRequesterTest {
                 .withUri(new URI("http://localhost:" + this.wireMock.port()))
                 .withRedirectsEnabled(false)
                 .withPreemptiveAuth(false)
-                .withCacheDir(null)
                 .withLog(LOG)
                 .withMavenSession(new MavenSessionStub());
     }
@@ -156,5 +157,24 @@ public class HttpFileRequesterTest {
 
         assertThat(String.join("", Files.readAllLines(this.outputFile.toPath())),
                 is("Hello, world!"));
+    }
+
+    /**
+     * Tests {@link HttpFileRequester#download(File, List)} should throw a {@link DownloadFailureException}
+     * if the download fails
+     */
+    @Test
+    public void testDownloadFailure() {
+        this.wireMock.stubFor(get(anyUrl())
+                .willReturn(forbidden()));
+
+        try {
+            createFileRequesterBuilder()
+                    .build()
+                    .download(this.outputFile, emptyList());
+            fail("A DownloadFailureException should have been thrown");
+        } catch (Exception e) {
+            assertThat(e, is(instanceOf(DownloadFailureException.class)));
+        }
     }
 }
