@@ -28,10 +28,13 @@ import org.apache.http.client.cache.HttpCacheContext;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.TrustAllStrategy;
 import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
@@ -61,6 +64,7 @@ public class HttpFileRequester {
     private boolean redirectsEnabled;
     private URI uri;
     private boolean preemptiveAuth;
+    private boolean insecure;
 
     private HttpFileRequester() {
     }
@@ -83,6 +87,7 @@ public class HttpFileRequester {
         private boolean redirectsEnabled;
         private MavenSession mavenSession;
         private boolean preemptiveAuth;
+        private boolean insecure;
 
         public Builder withUri(URI uri) {
             this.uri = uri;
@@ -169,6 +174,11 @@ public class HttpFileRequester {
             return this;
         }
 
+        public Builder withInsecure(boolean insecure) {
+            this.insecure = insecure;
+            return this;
+        }
+
         public HttpFileRequester build() throws MojoExecutionException {
             final HttpFileRequester instance = new HttpFileRequester();
             instance.uri = requireNonNull(this.uri);
@@ -177,6 +187,7 @@ public class HttpFileRequester {
             instance.socketTimeout = this.socketTimeout;
             instance.redirectsEnabled = this.redirectsEnabled;
             instance.preemptiveAuth = this.preemptiveAuth;
+            instance.insecure = this.insecure;
 
             instance.credentialsProvider = new BasicCredentialsProvider();
             if (isNotBlank(this.serverId)) {
@@ -293,13 +304,25 @@ public class HttpFileRequester {
     }
 
     private HttpClientBuilder createHttpClientBuilder() {
-        return HttpClients.custom()
-                        .setDefaultCredentialsProvider(this.credentialsProvider)
-                        .setRoutePlanner(routePlanner)
-                        .setDefaultRequestConfig(RequestConfig.custom()
-                                .setConnectTimeout(connectTimeout)
-                                .setSocketTimeout(socketTimeout)
-                                .setRedirectsEnabled(redirectsEnabled)
-                                .build());
+        HttpClientBuilder httpClientBuilder = HttpClients.custom()
+                .setDefaultCredentialsProvider(this.credentialsProvider)
+                .setRoutePlanner(routePlanner)
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setConnectTimeout(connectTimeout)
+                        .setSocketTimeout(socketTimeout)
+                        .setRedirectsEnabled(redirectsEnabled)
+                        .build());
+        if (insecure) {
+            try {
+                httpClientBuilder.setSSLContext(
+                                new SSLContextBuilder()
+                                        .loadTrustMaterial(null, TrustAllStrategy.INSTANCE)
+                                        .build())
+                        .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+            } catch (Exception cantHappen) {
+                throw new RuntimeException(cantHappen);
+            }
+        }
+        return httpClientBuilder;
     }
 }
