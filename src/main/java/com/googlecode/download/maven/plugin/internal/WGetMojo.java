@@ -333,9 +333,9 @@ public class WGetMojo extends AbstractMojo {
     }
 
     /**
-     * If {@code true}, it will turn off any verification of the SSL certificate
+     * If {@code true}, SSL certificate verification is skipped
      *
-     * @since 1.6.9
+     * @since 1.8.1
      */
     @Parameter(property = "insecure", defaultValue = "false")
     private boolean insecure;
