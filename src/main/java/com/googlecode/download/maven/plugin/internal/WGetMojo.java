@@ -39,6 +39,8 @@ import org.codehaus.plexus.archiver.manager.NoSuchArchiverException;
 import org.codehaus.plexus.archiver.snappy.SnappyUnArchiver;
 import org.codehaus.plexus.archiver.xz.XZUnArchiver;
 import org.codehaus.plexus.components.io.filemappers.FileMapper;
+import org.codehaus.plexus.components.io.fileselectors.FileSelector;
+import org.codehaus.plexus.components.io.fileselectors.IncludeExcludeFileSelector;
 import org.eclipse.aether.repository.Authentication;
 import org.eclipse.aether.repository.AuthenticationContext;
 import org.eclipse.aether.repository.Proxy;
@@ -279,6 +281,26 @@ public class WGetMojo extends AbstractMojo {
      */
     @Parameter(property = "preemptiveAuth", defaultValue = "false")
     private boolean preemptiveAuth;
+
+    /**
+     * Files to include when unpacking.
+     * 
+     * <p>If left empty all files will be eligible to be unpacked.</p>
+     * 
+     * @since 1.9.0
+     */
+    @Parameter
+    private String[] includes;
+
+    /**
+     * Files to ignore from unpacking.
+     *
+     * <p>If left empty no file will be excluded when unpacking</p>
+     *
+     * @since 1.9.0
+     */
+    @Parameter
+    private String[] excludes;
 
     private static final PoolingHttpClientConnectionManager CONN_POOL;
 
@@ -523,12 +545,16 @@ public class WGetMojo extends AbstractMojo {
     private void unpack(File outputFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
         unarchiver.setSourceFile(outputFile);
+        final IncludeExcludeFileSelector fileSelector = new IncludeExcludeFileSelector();
+        fileSelector.setIncludes(this.includes);
+        fileSelector.setExcludes(this.excludes);
         if (isFileUnArchiver(unarchiver)) {
             unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.substring(0,
                     this.outputFileName.lastIndexOf('.'))));
         } else {
             unarchiver.setDestDirectory(this.outputDirectory);
         }
+        unarchiver.setFileSelectors(new FileSelector[]{ fileSelector });
         unarchiver.setFileMappers(this.fileMappers);
         unarchiver.extract();
         outputFile.delete();
