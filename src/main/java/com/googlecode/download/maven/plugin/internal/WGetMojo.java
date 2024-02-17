@@ -291,7 +291,7 @@ public class WGetMojo extends AbstractMojo {
      * 
      * @since 1.9.0
      */
-    @Parameter
+    @Parameter(property = "download.unpack.includes")
     private String[] includes;
 
     /**
