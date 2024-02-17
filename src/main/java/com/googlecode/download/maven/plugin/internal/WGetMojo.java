@@ -303,7 +303,7 @@ public class WGetMojo extends AbstractMojo {
      *
      * @since 1.9.0
      */
-    @Parameter
+    @Parameter(property = "download.unpack.excludes")
     private String[] excludes;
 
     private static final PoolingHttpClientConnectionManager CONN_POOL;
