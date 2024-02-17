@@ -286,6 +286,8 @@ public class WGetMojo extends AbstractMojo {
      * Files to include when unpacking.
      * 
      * <p>If left empty all files will be eligible to be unpacked.</p>
+
+     * <p>Entries are interpreted as Ant-style path patterns.</p>
      * 
      * @since 1.9.0
      */
@@ -293,9 +295,11 @@ public class WGetMojo extends AbstractMojo {
     private String[] includes;
 
     /**
-     * Files to ignore from unpacking.
+     * Files to ignore when unpacking.
      *
-     * <p>If left empty no file will be excluded when unpacking</p>
+     * <p>If left empty no file will be excluded when unpacking.</p>
+
+     * <p>Entries are interpreted as Ant-style path patterns.</p>
      *
      * @since 1.9.0
      */
