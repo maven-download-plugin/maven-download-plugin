@@ -22,11 +22,10 @@
                             <goal>wget</goal>
                         </goals>
                         <configuration>
-                            <!-- downloading a locally hosted jar archive, containing a "Hello, world!" text -->
-                            <url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.jar</url>
+                            <url>@mrm.repository.url@/localhost/several-files/2.0/several-files-2.0.jar</url>
                             <unpack>true</unpack>
                             <excludes>
-                                <exclude>hello.*</exclude>
+                                <exclude>**/*-file.txt</exclude>
                             </excludes>
                         </configuration>
                     </execution>
