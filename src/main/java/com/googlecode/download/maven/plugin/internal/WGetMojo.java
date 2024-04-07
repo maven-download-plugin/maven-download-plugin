@@ -580,7 +580,7 @@ public class WGetMojo extends AbstractMojo {
                     ? uri.getScheme()
                     : null,
                 isBlank(serverId)
-                    ? uri.getHost()
+                    ? uri.getScheme() + "://" + uri.getHost()
                     : null)
                 .build();
     }
@@ -630,10 +630,12 @@ public class WGetMojo extends AbstractMojo {
 
         try ( final AuthenticationContext ctx = AuthenticationContext.forProxy(this.session.getRepositorySession(),
                 proxyRepo) ) {
-            fileRequesterBuilder.withProxyUserName(ctx.get(AuthenticationContext.USERNAME));
-            fileRequesterBuilder.withProxyPassword(ctx.get(AuthenticationContext.PASSWORD));
-            fileRequesterBuilder.withNtlmDomain(ctx.get(AuthenticationContext.NTLM_DOMAIN));
-            fileRequesterBuilder.withNtlmHost(ctx.get(AuthenticationContext.NTLM_WORKSTATION));
+            if (ctx != null) {
+                fileRequesterBuilder.withProxyUserName(ctx.get(AuthenticationContext.USERNAME));
+                fileRequesterBuilder.withProxyPassword(ctx.get(AuthenticationContext.PASSWORD));
+                fileRequesterBuilder.withNtlmDomain(ctx.get(AuthenticationContext.NTLM_DOMAIN));
+                fileRequesterBuilder.withNtlmHost(ctx.get(AuthenticationContext.NTLM_WORKSTATION));
+            }
         }
     }
 
