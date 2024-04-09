@@ -16,6 +16,20 @@ package com.googlecode.download.maven.plugin.internal;
 
 import com.googlecode.download.maven.plugin.internal.cache.DownloadCache;
 import com.googlecode.download.maven.plugin.internal.checksum.Checksums;
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+import javax.inject.Inject;
 import org.apache.http.Header;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -46,22 +60,6 @@ import org.eclipse.aether.repository.AuthenticationContext;
 import org.eclipse.aether.repository.Proxy;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.sonatype.plexus.build.incremental.BuildContext;
-
-import javax.inject.Inject;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
-
 import static java.lang.String.format;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 import static org.codehaus.plexus.util.StringUtils.isNotBlank;
@@ -549,17 +547,14 @@ public class WGetMojo extends AbstractMojo {
     private void unpack(File outputFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
         unarchiver.setSourceFile(outputFile);
-        final IncludeExcludeFileSelector fileSelector = new IncludeExcludeFileSelector();
-        fileSelector.setIncludes(this.includes);
-        fileSelector.setExcludes(this.excludes);
         if (isFileUnArchiver(unarchiver)) {
             unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.substring(0,
                     this.outputFileName.lastIndexOf('.'))));
         } else {
             unarchiver.setDestDirectory(this.outputDirectory);
         }
-        unarchiver.setFileSelectors(new FileSelector[]{ fileSelector });
         unarchiver.setFileMappers(this.fileMappers);
+        this.addFileSelectorIfNeeded(unarchiver);
         unarchiver.extract();
         outputFile.delete();
     }
@@ -667,5 +662,23 @@ public class WGetMojo extends AbstractMojo {
         return headers.entrySet().stream()
                 .map(pair -> new BasicHeader(pair.getKey(), pair.getValue()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Adds a file selector to the provided UnArchiver if the includes or excludes
+     * arrays are not empty.
+     * @param unarchiver The UnArchiver where the file selector should be added.
+     */
+    private void addFileSelectorIfNeeded(final UnArchiver unarchiver) {
+        if (this.includes.length != 0 || this.excludes.length != 0) {
+            final IncludeExcludeFileSelector fileSelector = new IncludeExcludeFileSelector();
+            if (this.includes.length != 0) {
+                fileSelector.setIncludes(this.includes);
+            }
+            if (this.excludes.length != 0) {
+                fileSelector.setExcludes(this.excludes);
+            }
+            unarchiver.setFileSelectors(new FileSelector[]{ fileSelector });
+        }
     }
 }
