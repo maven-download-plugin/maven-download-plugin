@@ -139,6 +139,12 @@ public class WGetMojo extends AbstractMojo {
     private boolean unpack;
 
     /**
+     * Whether to unpack the artifact only when the downloaded file changes
+     */
+    @Parameter(property = "unpackWhenChanged", defaultValue = "false")
+    private boolean unpackWhenChanged;
+
+    /**
      * Server Id from settings file to use for authentication
      * Only one of serverId or (username/password) may be supplied
      */
@@ -469,13 +475,15 @@ public class WGetMojo extends AbstractMojo {
                     outputFile.delete();
                     haveFile = false;
                 } else {
-                    getLog().info("File already exist, skipping");
+                    getLog().info("File already exists, skipping");
                 }
             }
 
+            boolean fileWasCached = false;
             if (!haveFile) {
                 final Optional<File> cachedFile = cache.map(c -> c.getArtifact(this.uri, checksums));
                 if (cachedFile.map(File::exists).orElse(false)) {
+                    fileWasCached = true;
                     getLog().debug("Got from cache: " + cachedFile.get().getAbsolutePath());
                     Files.copy(cachedFile.get().toPath(), outputFile.toPath());
                 } else {
@@ -523,9 +531,13 @@ public class WGetMojo extends AbstractMojo {
             if (cache.isPresent()) {
                 cache.get().install(this.uri, outputFile, checksums);
             }
-            if (this.unpack) {
-                unpack(outputFile);
-                this.buildContext.refresh(this.outputDirectory);
+            if (this.unpack || this.unpackWhenChanged) {
+                if (this.unpackWhenChanged && fileWasCached) {
+                    getLog().info("Skipping unpacking as the file has not changed");
+                } else {
+                    this.unpack(outputFile);
+                    this.buildContext.refresh(this.outputDirectory);
+                }
             } else {
             	this.buildContext.refresh(outputFile);
             }
