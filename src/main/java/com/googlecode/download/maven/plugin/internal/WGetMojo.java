@@ -59,6 +59,7 @@ import org.eclipse.aether.repository.Authentication;
 import org.eclipse.aether.repository.AuthenticationContext;
 import org.eclipse.aether.repository.Proxy;
 import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.transfer.TransferListener;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import static java.lang.String.format;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
@@ -580,6 +581,25 @@ public class WGetMojo extends AbstractMojo {
                 .build();
     }
 
+    /**
+     * Determines whether to show transfer progress. Progress is shown if the
+     * session is interactive and the transfer listener is null or not a
+     * QuietMavenTransferListener.
+     *
+     * @param session the current Maven session
+     * @return whether to show transfer progress
+     */
+    private boolean showTransferProgress(final MavenSession session) {
+        if (!session.getSettings().isInteractiveMode()) {
+            return false;
+        }
+        TransferListener transferListener = session.getRequest().getTransferListener();
+        if (transferListener == null) {
+            return true;
+        }
+        return !"QuietMavenTransferListener".equals(transferListener.getClass().getSimpleName());
+    }
+
     private void doGet(final File outputFile) throws IOException, MojoExecutionException {
         final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
 
@@ -595,7 +615,7 @@ public class WGetMojo extends AbstractMojo {
                 .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
 
         final HttpFileRequester fileRequester = fileRequesterBuilder
-                .withProgressReport(this.session.getSettings().isInteractiveMode()
+                .withProgressReport(showTransferProgress(this.session)
                         ? new LoggingProgressReport(this.getLog())
                         : new SilentProgressReport(this.getLog()))
                 .withConnectTimeout(this.readTimeOut)
