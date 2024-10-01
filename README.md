@@ -8,25 +8,6 @@ The plugin caches downloaded files in maven cache directory, which saves network
 
 Functional but not under active development. We accept pull requests, and generally get them merged within a week or 2 depending on the complexity.
 
-## Enable
-
-This Maven plugin should be available on Maven Central. But in case you can't find it on Central for some reason, here is the repository to add to your pom:
-
-```xml
-<pluginRepository>
-	<id>sonatype-public-repository</id>
-	<url>https://oss.sonatype.org/content/groups/public</url>
-	<snapshots>
-		<enabled>true</enabled>
-	</snapshots>
-	<releases>
-		<enabled>true</enabled>
-	</releases>
-</pluginRepository>
-````
-
-You can use some alternative repositories. See https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide#SonatypeOSSMavenRepositoryUsageGuide-4.MavenRepositories for details.
-
 ## Basic Usage
 
 ### "Artifact" goal
@@ -35,7 +16,7 @@ Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/p
 
 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:1.9.0:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
+mvn com.googlecode.maven-download-plugin:download-maven-plugin:<LATEST_VERSION>:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
 ```
 
 ### "WGet" goal
@@ -45,7 +26,7 @@ It provides caching and checksum verification.
 <plugin>
 	<groupId>com.googlecode.maven-download-plugin</groupId>
 	<artifactId>download-maven-plugin</artifactId>
-	<version>1.9.0</version>
+	<version>LATEST_VERSION</version>
 	<executions>
 		<execution>
 			<id>install-jbpm</id>
@@ -66,7 +47,7 @@ It provides caching and checksum verification.
 
 You can also run it without a pom.xml i.e. 
 
-`mvn -Ddownload.url=https://example.com -Ddownload.outputDirectory=. -Ddownload.outputFileName=example.html com.googlecode.maven-download-plugin:download-maven-plugin:1.7.2:wget`
+`mvn -Ddownload.url=https://example.com -Ddownload.outputDirectory=. -Ddownload.outputFileName=example.html com.googlecode.maven-download-plugin:download-maven-plugin:<LATEST_VERSION>:wget`
 
 ## Requirements
 
@@ -79,10 +60,6 @@ Starting from version 1.6.9, the plugin requires Maven version 3.2.5 or above.
 Happens when the plugin is instructed to unarchive file but the file has unsupported extension
 
 **Solution**: Specify `outputFilename` parameter with proper file extension
-
-### WARNING about artifactId
-
-Until version 1.1, the plugin artifactId used to be _maven-download-plugin_, however Maven conventions makes that this name is not allowed for a plugin which is not part of the Apache Maven project. So starting from version 1.2-SNAPSHOT, the plugin artifactId is _download-maven-plugin_. The following documentation will get updated when releasing download-maven-plugin:1.2.
 
 ## Help
 
@@ -97,9 +74,6 @@ To get a more detailed help, type command :
 ```
 mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
-### Generated documentation
-
-See also generated documentation pages [for 1.9.0](http://maven-download-plugin.github.io/maven-download-plugin/docsite/1.8.0/) and [for snapshot](http://maven-download-plugin.github.io/maven-download-plugin/docsite/snapshot/).
 
 ### Mailing-list
 
