@@ -28,11 +28,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
-        java: [9, 11, 17, 21]
+        java: [11, 17, 21]
         jdk: ['temurin']
-        exclude:
-          - os: macOS-latest
-            java: 9
       fail-fast: false
 
     runs-on: ${{ matrix.os }}
