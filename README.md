@@ -1,4 +1,4 @@
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin) [![Build Status](https://app.travis-ci.com/maven-download-plugin/maven-download-plugin.svg?branch=master)](https://app.travis-ci.com/maven-download-plugin/maven-download-plugin)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin)
 
 # Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
