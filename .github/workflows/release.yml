@@ -1,0 +1,75 @@
+name: Release and publish to the Maven Central
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release Tag'
+        required: true
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Maven Central Repository
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          cache: 'maven'
+
+      - name: Import GPG key to sign master push
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_SIGNING_KEY }}
+          passphrase: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Set release version version
+        run: mvn versions:set -DnewVersion=${{ github.event.inputs.tag }} --batch-mode
+
+      - name: Build with ITs
+        run: mvn -T 1C -B verify -P its
+
+      - name: Create branch and tag
+        run: |
+          git add pom.xml 
+          git commit -m 'Release ${{ github.event.inputs.tag }}'
+          git tag -a ${{ github.event.inputs.tag }} -m "Release ${{ github.event.inputs.tag }}"
+          git checkout -b ${{ github.event.inputs.tag }}
+
+      - name: Publish package
+        run: mvn deploy -Prelease -DskipTests --batch-mode --errors
+        env:
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_SIGNING_KEY_PASSWORD }}
+
+      - name: Push new tag
+        run: |
+          git push --set-upstream origin refs/heads/${{ github.event.inputs.tag }}:refs/heads/${{ github.event.inputs.tag }}  
+          git push --tags origin HEAD:master
+          git checkout origin/master
+
+      - name: Set next snapshot version
+        run: mvn versions:set -DnextSnapshot=true -DnextSnapshotIndexToIncrement=3 --batch-mode
+
+      - name: Push new version to Github
+        run: |
+          git add pom.xml 
+          git commit -m "Bump to the next SNAPSHOT"
+          git push origin HEAD:master
+
+      - name: Tag release on Github
+        id: release-snapshot
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
+          release_name: ${{ github.event.inputs.tag }} Release
+          draft: false
+          prerelease: true
