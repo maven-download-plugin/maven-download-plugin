@@ -64,12 +64,7 @@ jobs:
           git push origin HEAD:master
 
       - name: Tag release on Github
-        id: release-snapshot
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: ncipollo/release-action@v1
         with:
-          tag_name: ${{ github.event.inputs.tag }}
-          release_name: ${{ github.event.inputs.tag }} Release
-          draft: false
-          prerelease: true
+          generateReleaseNotes: true
+          tag: ${{ github.event.inputs.tag }} 
