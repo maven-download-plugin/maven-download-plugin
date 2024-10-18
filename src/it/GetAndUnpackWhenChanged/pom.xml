@@ -26,6 +26,8 @@
 							<url>@mrm.repository.url@/localhost/hello/1.0/hello-1.0.jar</url>
 							<outputDirectory>${project.basedir}/unpacked</outputDirectory>
 							<unpackWhenChanged>true</unpackWhenChanged>
+							<!-- use a separate cache to ensure hello-1.0.jar isn't already cached on first run-->
+							<cacheDirectory>${project.basedir}/unpackWhenChangedCache</cacheDirectory>
 						</configuration>
 					</execution>
 				</executions>
