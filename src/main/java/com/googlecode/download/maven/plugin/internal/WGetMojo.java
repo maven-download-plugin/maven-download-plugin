@@ -142,7 +142,7 @@ public class WGetMojo extends AbstractMojo {
     /**
      * Whether to unpack the artifact only when the downloaded file changes
      */
-    @Parameter(property = "unpackWhenChanged", defaultValue = "false")
+    @Parameter(property = "download.unpackWhenChanged", defaultValue = "false")
     private boolean unpackWhenChanged;
 
     /**
@@ -480,13 +480,20 @@ public class WGetMojo extends AbstractMojo {
                 }
             }
 
+            Optional<File> cachedFile = Optional.empty();
             boolean fileWasCached = false;
             if (!haveFile) {
-                final Optional<File> cachedFile = cache.map(c -> c.getArtifact(this.uri, checksums));
-                if (cachedFile.map(File::exists).orElse(false)) {
-                    fileWasCached = true;
-                    getLog().debug("Got from cache: " + cachedFile.get().getAbsolutePath());
-                    Files.copy(cachedFile.get().toPath(), outputFile.toPath());
+                cachedFile = cache.map(c -> c.getArtifact(this.uri, checksums));
+                fileWasCached = cachedFile.map(File::exists).orElse(false);
+                if (fileWasCached) {
+                    getLog().debug("File was cached: " + cachedFile.get().getAbsolutePath());
+                    if (!this.unpack && !this.unpackWhenChanged) {
+                        // only copy cached file to output file
+                        // if it won't be unpacked, otherwise unpack
+                        // directly from cached file below
+                        getLog().debug("Copying cached file to " + outputFile.getAbsolutePath());
+                        Files.copy(cachedFile.get().toPath(), outputFile.toPath());
+                    }
                 } else {
                     if (this.session.getRepositorySession().isOffline()) {
                         if (this.failOnError) {
@@ -536,7 +543,7 @@ public class WGetMojo extends AbstractMojo {
                 if (this.unpackWhenChanged && fileWasCached) {
                     getLog().info("Skipping unpacking as the file has not changed");
                 } else {
-                    this.unpack(outputFile);
+                    this.unpack(outputFile, cachedFile);
                     this.buildContext.refresh(this.outputDirectory);
                 }
             } else {
@@ -557,9 +564,15 @@ public class WGetMojo extends AbstractMojo {
         }
     }
 
-    private void unpack(File outputFile) throws NoSuchArchiverException {
+    private void unpack(File outputFile, Optional<File> cachedFile) throws NoSuchArchiverException {
         UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
-        unarchiver.setSourceFile(outputFile);
+        if (cachedFile.isPresent() && cachedFile.get().exists()) {
+            unarchiver.setSourceFile(cachedFile.get());
+        } else if (outputFile.exists()) {
+            unarchiver.setSourceFile(outputFile);
+        } else {
+            throw new IllegalStateException("No file to unpack");
+        }
         if (isFileUnArchiver(unarchiver)) {
             unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.substring(0,
                     this.outputFileName.lastIndexOf('.'))));
@@ -569,7 +582,9 @@ public class WGetMojo extends AbstractMojo {
         unarchiver.setFileMappers(this.fileMappers);
         this.addFileSelectorIfNeeded(unarchiver);
         unarchiver.extract();
-        outputFile.delete();
+        if (outputFile.exists()) {
+            outputFile.delete();
+        }
     }
 
     private boolean isFileUnArchiver(final UnArchiver unarchiver) {
