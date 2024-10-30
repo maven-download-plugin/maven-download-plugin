@@ -540,9 +540,12 @@ public class WGetMojo extends AbstractMojo {
                 cache.get().install(this.uri, outputFile, checksums);
             }
             if (this.unpack || this.unpackWhenChanged) {
-                if (this.unpackWhenChanged && fileWasCached) {
+                if (!this.unpack && this.unpackWhenChanged && fileWasCached) {
                     getLog().info("Skipping unpacking as the file has not changed");
                 } else {
+                    if (this.unpackWhenChanged && fileWasCached) {
+                        getLog().info("Unpacking even though unchanged cache file exists because unpack = true");
+                    }
                     this.unpack(outputFile, cachedFile);
                     this.buildContext.refresh(this.outputDirectory);
                 }
