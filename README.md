@@ -51,7 +51,11 @@ You can also run it without a pom.xml i.e.
 
 ## Requirements
 
-Starting from version 1.6.9, the plugin requires Maven version 3.2.5 or above.
+Java 8 or greater
+
+Maven
+  - `3.6.3` or greater for plugin versions >= `1.11.0`
+  - `3.2.5` or greater for plugin version >= `1.6.9` & < `1.11.0`
 
 ## Known issues and workarounds
 
@@ -87,6 +91,8 @@ Are maintained at GitHub (links above).
 
 This project support GitHub PR, but enforce some rules for decent tracking: 1 Change Request == 1 PR == 1 commit, if a change can be made by iterations, then use a specific PR for each iteration.
 Ideally, every bugfix should be supplied with a unit or integration test. 
+
+Build requirements are specified in `.tools-versions`.
 
 ## Other links
 
