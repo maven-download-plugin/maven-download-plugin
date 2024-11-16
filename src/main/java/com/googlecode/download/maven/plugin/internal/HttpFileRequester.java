@@ -15,6 +15,14 @@
  */
 package com.googlecode.download.maven.plugin.internal;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.nio.file.Files;
+import java.util.List;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -31,7 +39,11 @@ import org.apache.http.conn.routing.HttpRoutePlanner;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.TrustAllStrategy;
 import org.apache.http.impl.auth.BasicScheme;
-import org.apache.http.impl.client.*;
+import org.apache.http.impl.client.BasicAuthCache;
+import org.apache.http.impl.client.BasicCredentialsProvider;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
 import org.apache.http.impl.conn.SystemDefaultRoutePlanner;
 import org.apache.http.ssl.SSLContextBuilder;
@@ -39,16 +51,8 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.settings.Server;
-
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.ProxySelector;
-import java.net.URI;
-import java.nio.file.Files;
-import java.util.List;
-
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 import static java.util.Objects.requireNonNull;
 import static org.apache.maven.shared.utils.StringUtils.isNotBlank;
 
@@ -86,6 +90,7 @@ public class HttpFileRequester {
         private Log log;
         private boolean redirectsEnabled;
         private MavenSession mavenSession;
+        private SecDispatcher secDispatcher;
         private boolean preemptiveAuth;
         private boolean insecure;
 
@@ -174,6 +179,11 @@ public class HttpFileRequester {
             return this;
         }
 
+        public Builder withSecDispatcher(SecDispatcher secDispatcher) {
+            this.secDispatcher = secDispatcher;
+            return this;
+        }
+
         public Builder withInsecure(boolean insecure) {
             this.insecure = insecure;
             return this;
@@ -192,7 +202,6 @@ public class HttpFileRequester {
             instance.credentialsProvider = new BasicCredentialsProvider();
             if (isNotBlank(this.serverId)) {
                 requireNonNull(this.mavenSession);
-
                 if (this.log.isDebugEnabled()) {
                     this.log.debug("providing custom authentication for " + this.serverId);
                 }
@@ -205,8 +214,11 @@ public class HttpFileRequester {
                             serverId, server.getUsername()));
                 }
                 instance.credentialsProvider.setCredentials(
-                        new AuthScope(this.uri.getHost(), this.uri.getPort()),
-                        new UsernamePasswordCredentials(server.getUsername(), server.getPassword()));
+                    new AuthScope(this.uri.getHost(), this.uri.getPort()),
+                    new UsernamePasswordCredentials(
+                        server.getUsername(), decrypt(server.getPassword(), serverId)
+                    )
+                );
             } else if (isNotBlank(this.username)) {
                 if (this.log.isDebugEnabled()) {
                     this.log.debug("providing custom authentication");
@@ -234,6 +246,26 @@ public class HttpFileRequester {
             }
 
             return instance;
+        }
+
+        /**
+         * Decrypt given password using maven security dispatcher.
+         * @param password Encrypted password/passphrase.
+         * @param server Server ID from settings.xml the password came from.
+         * @return Decrypted password or input string if failed to decrypt.
+         */
+        private String decrypt(final String password, final String server) {
+            try {
+                return secDispatcher.decrypt(password);
+            } catch (final SecDispatcherException ex) {
+                this.log.warn(
+                    String.format(
+                        "Failed to decrypt password/passphrase for server %s, using auth token as is",
+                        server
+                    ), ex
+                );
+                return password;
+            }
         }
     }
 
