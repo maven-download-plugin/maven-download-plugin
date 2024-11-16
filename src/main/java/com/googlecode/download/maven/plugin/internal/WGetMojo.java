@@ -42,6 +42,7 @@ import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
+import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -61,6 +62,7 @@ import org.eclipse.aether.repository.Proxy;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.transfer.TransferListener;
 import org.sonatype.plexus.build.incremental.BuildContext;
+import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
 import static java.lang.String.format;
 import static org.apache.maven.shared.utils.StringUtils.isBlank;
 import static org.codehaus.plexus.util.StringUtils.isNotBlank;
@@ -242,6 +244,12 @@ public class WGetMojo extends AbstractMojo {
 
     @Parameter(property = "session", readonly = true)
     private MavenSession session;
+
+    /**
+     * Maven Security Dispatcher
+     */
+    @Component( hint = "mng-4384" )
+    private SecDispatcher securityDispatcher;
 
     @Inject
     private ArchiverManager archiverManager;
@@ -645,17 +653,18 @@ public class WGetMojo extends AbstractMojo {
                 .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
 
         final HttpFileRequester fileRequester = fileRequesterBuilder
-                .withProgressReport(showTransferProgress(this.session)
-                        ? new LoggingProgressReport(this.getLog())
-                        : new SilentProgressReport(this.getLog()))
-                .withConnectTimeout(this.readTimeOut)
-                .withSocketTimeout(this.readTimeOut)
-                .withUri(this.uri)
-                .withUsername(this.username)
-                .withPassword(this.password)
-                .withServerId(this.serverId)
-                .withPreemptiveAuth(this.preemptiveAuth)
-                .withMavenSession(this.session)
+            .withProgressReport(showTransferProgress(this.session)
+                    ? new LoggingProgressReport(this.getLog())
+                    : new SilentProgressReport(this.getLog()))
+            .withConnectTimeout(this.readTimeOut)
+            .withSocketTimeout(this.readTimeOut)
+            .withUri(this.uri)
+            .withUsername(this.username)
+            .withPassword(this.password)
+            .withServerId(this.serverId)
+            .withPreemptiveAuth(this.preemptiveAuth)
+            .withMavenSession(this.session)
+            .withSecDispatcher(this.securityDispatcher)
                 .withRedirectsEnabled(this.followRedirects)
                 .withLog(this.getLog())
                 .withInsecure(this.insecure)
