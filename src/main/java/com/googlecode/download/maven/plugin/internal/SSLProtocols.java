@@ -28,38 +28,42 @@ public final class SSLProtocols {
      * Default SSL protocols supported by the plugin.
      */
     private static final String[] DEFAULT_PROTOCOLS = {
-        "SSLv3","TLSv1","TLSv1.1","TLSv1.2"
+        "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2",
     };
 
     /**
      * Default SSL protocols supported by the plugin (including {@code TLS1.3}).
      */
     private static final String[] WITH_1_3_PROTOCOLS = {
-        "SSLv3","TLSv1","TLSv1.1","TLSv1.2", "TLSv1.3"
+        "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2", "TLSv1.3",
     };
+
+    /**
+     * Private constructor of utility class.
+     */
+    private SSLProtocols() {
+    }
 
     /**
      * List SSL protocols supported by the plugin.
      * @return The list of supported SSL protocols.
      */
     public static String[] supported() {
-        return SSLProtocols.isTls13Supported() ?
-            SSLProtocols.WITH_1_3_PROTOCOLS : SSLProtocols.DEFAULT_PROTOCOLS;
+        return SSLProtocols.isTls13Supported()
+            ? SSLProtocols.WITH_1_3_PROTOCOLS : SSLProtocols.DEFAULT_PROTOCOLS;
     }
 
     /**
      * Define runtime supports {@code TLS1.3}.
      * @return True if supports.
+     * @checkstyle MethodName (5 lines)
      */
     private static boolean isTls13Supported() {
         try {
-            return Arrays.asList(
-                SSLContext.getDefault().getSupportedSSLParameters()
-                    .getProtocols()
-            ).contains("TLSv1.3");
-        } catch (NoSuchAlgorithmException ex) {
+            return Arrays.asList(SSLContext.getDefault().getSupportedSSLParameters().getProtocols())
+                .contains("TLSv1.3");
+        } catch (final NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);
         }
     }
-
 }

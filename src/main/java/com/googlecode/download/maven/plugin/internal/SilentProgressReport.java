@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2009-2018 The Apache Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -16,27 +16,33 @@
 package com.googlecode.download.maven.plugin.internal;
 
 import java.net.URI;
-
 import org.apache.maven.plugin.logging.Log;
 
 /**
- * Silent (no-op) implementation of {@link ProgressReport}. Only errors will get logged
- * at ERROR priority.
+ * Silent (no-op) implementation of {@link ProgressReport}.
+ * Only errors will get logged at ERROR priority.
  */
 public final class SilentProgressReport implements ProgressReport {
 
+    /**
+     * Underlying logger.
+     */
     private final Log log;
 
-    public SilentProgressReport(Log log) {
+    /**
+     * Constructor.
+     * @param log Underlying logger.
+     */
+    public SilentProgressReport(final Log log) {
         this.log = log;
     }
 
     @Override
-    public void initiate(URI uri, long total) {
+    public void initiate(final URI uri, final long total) {
     }
 
     @Override
-    public void update(long bytesRead) {
+    public void update(final long bytesRead) {
     }
 
     @Override
@@ -44,8 +50,7 @@ public final class SilentProgressReport implements ProgressReport {
     }
 
     @Override
-    public void error(Exception ex) {
-        log.error(ex);
+    public void error(final Exception exc) {
+        this.log.error(exc);
     }
-
 }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2009-2018 The Apache Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -34,7 +34,7 @@ public final class LoggingProgressReport implements ProgressReport {
     private long total;
     private long completed;
 
-    public LoggingProgressReport(Log log) {
+    public LoggingProgressReport(final Log log) {
         this.log = log;
     }
 
@@ -43,12 +43,12 @@ public final class LoggingProgressReport implements ProgressReport {
         this.total = total;
         this.completed = 0L;
         this.unit = total >= KBYTE ? K_UNIT : B_UNIT;
-        log.info(String.format( "%s: %s", "Downloading", uri));
+        this.log.info(String.format( "%s: %s", "Downloading", uri));
     }
 
     @Override
     public void update(long bytesRead) {
-        completed += bytesRead;
+        this.completed += bytesRead;
         final String totalInUnits;
         final long completedInUnits;
         if (unit == K_UNIT) {
@@ -58,19 +58,18 @@ public final class LoggingProgressReport implements ProgressReport {
             totalInUnits = total == -1 ? "?" : Long.toString(total);
             completedInUnits = completed;
         }
-        log.info(String.format("%d/%s", completedInUnits, totalInUnits));
+        this.log.info(String.format("%d/%s", completedInUnits, totalInUnits));
     }
 
     @Override
     public void completed() {
-        log.info(String.format("%s %s",
+        this.log.info(String.format("%s %s",
                 "downloaded",
                 unit == K_UNIT ? Long.toString(completed / KBYTE) + unit : Long.toString(completed)));
     }
 
     @Override
-    public void error(Exception ex) {
-        log.error(ex);
+    public void error(Exception exc) {
+        this.log.error(exc);
     }
-
 }

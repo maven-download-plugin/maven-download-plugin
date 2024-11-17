@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright 2009-2018 The Apache Software Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -25,8 +25,8 @@ public interface ProgressReport {
     /**
      * Triggered to signal initiation of a download operation.
      *
-     * @param uri the URI of the resource being downloaded
-     * @param total the total length of resource content.
+     * @param uri The URI of the resource being downloaded
+     * @param total The total length of resource content.
      */
     void initiate(URI uri, long total);
 
@@ -34,7 +34,7 @@ public interface ProgressReport {
      * Triggered to signal successful retrieval of a chunk
      * of the resource content.
      *
-     * @param bytesRead the number of bytes retrieved.
+     * @param bytesRead The number of bytes retrieved.
      */
     void update(long bytesRead);
 
@@ -45,7 +45,8 @@ public interface ProgressReport {
 
     /**
      * Triggered to signal an error occurred during the download operation.
+     * @param exc Exception occurred.
      */
-    void error(Exception ex);
+    void error(Exception exc);
 
 }

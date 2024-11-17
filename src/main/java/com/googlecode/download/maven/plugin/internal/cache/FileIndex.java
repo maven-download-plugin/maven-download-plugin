@@ -1,3 +1,18 @@
+/*
+ * Copyright 2009-2018 The Apache Software Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of
+ * the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+ * License for the specific language governing permissions and limitations under
+ * the License.
+ */
 package com.googlecode.download.maven.plugin.internal.cache;
 
 import java.net.URI;
@@ -15,15 +30,15 @@ interface FileIndex {
 
     /**
      * Adds given path to the index using uri parameter as a key.
-     * @param uri index key
-     * @param path index value
+     * @param uri Index key.
+     * @param path Index value.
      */
     void put(URI uri, String path);
 
     /**
      * Gets stored value by the key.
-     * @param uri index key
-     * @return path by given uri key; {@literal null} if not found.
+     * @param uri Index key
+     * @return Path by given uri key; {@literal null} if not found.
      */
     String get(URI uri);
 
