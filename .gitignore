@@ -6,3 +6,6 @@ target
 .idea/
 *.jar
 .factorypath
+
+# checkstyle cache
+cache.file
