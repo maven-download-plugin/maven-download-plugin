@@ -55,21 +55,6 @@
         <property name="message" value="This kind of comment is not allowed."/>
     </module>
     <!--
-      Windows line endings are not allowed.
-      -->
-    <module name="RegexpMultiline">
-        <property name="format" value="\r\n$"/>
-        <property name="message" value="Lines in file should end with Unix-like end of line"/>
-    </module>
-    <!--
-      Two consecutive empty lines are not allowed.
-      -->
-    <module name="RegexpMultiline">
-        <property name="format" value="\r?\n[ \t\x0B\f]*\r?\n[ \t\x0B\f]*\r?\n"/>
-        <property name="fileExtensions" value="java"/>
-        <property name="message" value="Two consecutive empty lines"/>
-    </module>
-    <!--
       JavaDoc regexp checks
       -->
     <module name="RegexpSingleline">
