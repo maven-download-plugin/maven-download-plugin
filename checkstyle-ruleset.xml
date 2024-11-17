@@ -17,7 +17,7 @@
       -->
     <module name="NewlineAtEndOfFile">
         <property name="fileExtensions" value="java"/>
-        <property name="lineSeparator" value="lf"/>
+        <property name="lineSeparator" value="lf_cr_crlf"/>
     </module>
     <!--
       Checks that property files contain the same keys.
