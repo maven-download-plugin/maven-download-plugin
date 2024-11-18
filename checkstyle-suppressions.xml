@@ -5,9 +5,7 @@
     "http://www.puppycrawl.com/dtds/suppressions_1_1.dtd">
 
 <suppressions>
-    <suppress files=".+ArtifactMojo.java" checks="[a-zA-Z0-9]*"/>
     <suppress files=".+WGetMojo.java" checks="[a-zA-Z0-9]*"/>
-    <suppress files=".+HttpFileRequester.java" checks="[a-zA-Z0-9]*"/>
     <suppress files=".+Test.java" checks="[a-zA-Z0-9]*"/>
     <suppress files=".+SSLProtocols.java" checks="AbbreviationAsWordInName"/>
 </suppressions>
