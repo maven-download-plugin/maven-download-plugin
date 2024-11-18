@@ -69,10 +69,6 @@ import org.sonatype.plexus.components.sec.dispatcher.SecDispatcherException;
 )
 public final class HttpFileRequester {
 
-    private static final int MOVED_PERMANENTLY = 301;
-    private static final int SEE_OTHER = 303;
-    private static final int BAD_REQUEST = 400;
-
     /**
      * Buffer size used for HTTP file download operations within {@link HttpFileRequester}.
      */
@@ -130,13 +126,13 @@ public final class HttpFileRequester {
     private Object handleResponse(final URI uri, final File outputFile, final HttpResponse response)
         throws IOException {
         final int statusCode = response.getStatusLine().getStatusCode();
-        if (statusCode >= BAD_REQUEST) {
+        if (statusCode >= HttpCodes.BAD_REQUEST.getCode()) {
             throw new DownloadFailureException(
                 statusCode,
                 response.getStatusLine().getReasonPhrase()
             );
         }
-        if (statusCode >= MOVED_PERMANENTLY && statusCode <= SEE_OTHER) {
+        if (statusCode >= HttpCodes.MOVED_PERMANENTLY.getCode() && statusCode <= HttpCodes.SEE_OTHER.getCode()) {
             throw new DownloadFailureException(
                 statusCode,
                 String.format(
