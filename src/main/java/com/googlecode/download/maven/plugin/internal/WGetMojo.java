@@ -1,5 +1,6 @@
-/**
- * Copyright 2009-2016 Marc-Andre Houle and Red Hat Inc
+/*
+ * Copyright 2009-2018 The Apache Software Foundation
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
@@ -46,6 +47,7 @@ import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.shared.utils.StringUtils;
 import org.codehaus.plexus.archiver.UnArchiver;
 import org.codehaus.plexus.archiver.bzip2.BZip2UnArchiver;
 import org.codehaus.plexus.archiver.gzip.GZipUnArchiver;
@@ -63,18 +65,36 @@ import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.transfer.TransferListener;
 import org.sonatype.plexus.build.incremental.BuildContext;
 import org.sonatype.plexus.components.sec.dispatcher.SecDispatcher;
-import static java.lang.String.format;
-import static org.apache.maven.shared.utils.StringUtils.isBlank;
-import static org.codehaus.plexus.util.StringUtils.isNotBlank;
 
 /**
- * Will download a file from a web site using the standard HTTP protocol.
- *
+ * Will download a file from a website using the standard HTTP protocol.
  * @author Marc-Andre Houle
  * @author Mickael Istria (Red Hat Inc)
  */
-@Mojo(name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES, requiresProject = false, threadSafe = true)
-public class WGetMojo extends AbstractMojo {
+@Mojo(
+    name = "wget", defaultPhase = LifecyclePhase.PROCESS_RESOURCES,
+    requiresProject = false, threadSafe = true
+)
+@SuppressWarnings("checkstyle:ClassFanOutComplexity")
+public final class WGetMojo extends AbstractMojo {
+
+    /**
+     * Http connection pool.
+     */
+    private static final PoolingHttpClientConnectionManager CONN_POOL;
+
+    /**
+     * A map of file caches by their location paths.
+     * Ensures one cache instance per path and enables safe execution in parallel
+     * builds against the same cache.
+     */
+    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
+
+    /**
+     * A map of file locks by files to be downloaded.
+     * Ensures exclusive access to a target file.
+     */
+    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
 
     /**
      * Represent the URL to fetch information from.
@@ -95,8 +115,8 @@ public class WGetMojo extends AbstractMojo {
     private boolean overwrite;
 
     /**
-     * Represent the file name to use as output value. If not set, will use last
-     * segment of "url"
+     * Represent the file name to use as output value.
+     * If not set, will use last segment of "url".
      */
     @Parameter(property = "download.outputFileName")
     private String outputFileName;
@@ -104,13 +124,17 @@ public class WGetMojo extends AbstractMojo {
     /**
      * Represent the directory where the file should be downloaded.
      */
-    @Parameter(property = "download.outputDirectory", defaultValue = "${project.build.directory}", required = true)
+    @Parameter(
+        property = "download.outputDirectory", defaultValue = "${project.build.directory}",
+        required = true
+    )
     private File outputDirectory;
 
     /**
      * The md5 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
+    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.md5")
     private String md5;
 
@@ -118,6 +142,7 @@ public class WGetMojo extends AbstractMojo {
      * The sha1 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
+    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.sha1")
     private String sha1;
 
@@ -125,6 +150,7 @@ public class WGetMojo extends AbstractMojo {
      * The sha256 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
+    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.sha256")
     private String sha256;
 
@@ -132,48 +158,49 @@ public class WGetMojo extends AbstractMojo {
      * The sha512 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
+    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.sha512")
     private String sha512;
 
     /**
-     * Whether to unpack the file in case it is an archive (.zip)
+     * Whether to unpack the file in case it is an archive (.zip).
      */
     @Parameter(property = "download.unpack", defaultValue = "false")
     private boolean unpack;
 
     /**
-     * Whether to unpack the artifact only when the downloaded file changes
+     * Whether to unpack the artifact only when the downloaded file changes.
      */
     @Parameter(property = "download.unpackWhenChanged", defaultValue = "false")
     private boolean unpackWhenChanged;
 
     /**
-     * Server Id from settings file to use for authentication
+     * Server Id from settings file to use for authentication.
      * Only one of serverId or (username/password) may be supplied
      */
     @Parameter(property = "download.auth.serverId")
     private String serverId;
 
     /**
-     * Custom username for the download
+     * Custom username for the download.
      */
     @Parameter(property = "download.auth.username")
     private String username;
 
     /**
-     * Custom password for the download
+     * Custom password for the download.
      */
     @Parameter(property = "download.auth.password")
     private String password;
 
     /**
-     * How many retries for a download
+     * How many retries for a download.
      */
     @Parameter(property = "download.retries", defaultValue = "2")
     private int retries;
 
     /**
-     * Read timeout for a download in milliseconds
+     * Read timeout for a download in milliseconds.
      */
     @Parameter(defaultValue = "3000")
     private int readTimeOut;
@@ -189,8 +216,7 @@ public class WGetMojo extends AbstractMojo {
     private boolean skipCache;
 
     /**
-     * The directory to use as a cache. Default is
-     * ${local-repo}/.cache/maven-download-plugin
+     * The directory to use as a cache. Default is ${local-repo}/.cache/maven-download-plugin
      */
     @Parameter(property = "download.cache.directory")
     private File cacheDirectory;
@@ -202,68 +228,78 @@ public class WGetMojo extends AbstractMojo {
     private boolean failOnError;
 
     /**
-     * Whether to skip execution of Mojo
+     * Whether to skip execution of Mojo.
      */
     @Parameter(property = "download.plugin.skip", defaultValue = "false")
     private boolean skip;
 
     /**
-     * Whether to verify the checksum of an existing file
+     * Whether to verify the checksum of an existing file.
      * <p>
-     * By default, checksum verification only occurs after downloading a file. This option additionally enforces
-     * checksum verification for already existing, previously downloaded (or manually copied) files. If the checksum
+     * By default, checksum verification only occurs after downloading a file. This option
+     * additionally enforces
+     * checksum verification for already existing, previously downloaded (or manually copied)
+     * files. If the checksum
      * does not match, re-download the file.
      * <p>
-     * Use this option in order to ensure that a new download attempt is made after a previously interrupted build or
+     * Use this option in order to ensure that a new download attempt is made after a previously
+     * interrupted build or
      * network connection or some other event corrupted a file.
      */
     @Parameter(property = "alwaysVerifyChecksum", defaultValue = "false")
     private boolean alwaysVerifyChecksum;
 
     /**
-     * @deprecated The option name is counter-intuitive and not related to signatures but to checksums, in fact.
-     * Please use {@link #alwaysVerifyChecksum} instead. This option might be removed in a future release.
+     * The option name is counter-intuitive and not related to signatures but to
+     * checksums, in fact.
+     * Please use {@link #alwaysVerifyChecksum} instead. This option might be removed in a future
+     * release.
+     * @deprecated
      */
     @Parameter(property = "checkSignature", defaultValue = "false")
     @Deprecated
     private boolean checkSignature;
 
     /**
-     * <p>Whether to follow redirects (301 Moved Permanently, 302 Found, 303 See Other).</p>
-     * <p>If this option is disabled and the returned resource returns a redirect, the plugin will report an error
-     * and exit unless {@link #failOnError} is {@code false}.</p>
+     * Whether to follow redirects (301 Moved Permanently, 302 Found, 303 See Other).
+     * <p>If this option is disabled and the returned resource returns a redirect, the plugin
+     * will report an error and exit unless {@link #failOnError} is {@code false}.</p>
      */
     @Parameter(property = "download.plugin.followRedirects", defaultValue = "true")
     private boolean followRedirects = true;
 
     /**
-     * A list of additional HTTP headers to send with the request
+     * A list of additional HTTP headers to send with the request.
      */
     @Parameter(property = "download.plugin.headers")
     private Map<String, String> headers = new HashMap<>();
 
+    /**
+     * Maven session.
+     */
     @Parameter(property = "session", readonly = true)
     private MavenSession session;
 
     /**
-     * Maven Security Dispatcher
+     * Maven Security Dispatcher.
      */
-    @Component( hint = "mng-4384" )
+    @Component(hint = "mng-4384")
     private SecDispatcher securityDispatcher;
 
+    /**
+     * Maven Archiver Manager.
+     */
     @Inject
     private ArchiverManager archiverManager;
 
     /**
-     * For transfers
+     * Maven Build Context.
      */
-
     @Inject
     private BuildContext buildContext;
 
     /**
      * Runs the plugin only if the current project is the execution root.
-     *
      * This is helpful, if the plugin is defined in a profile and should only run once
      * to download a shared file.
      */
@@ -272,7 +308,6 @@ public class WGetMojo extends AbstractMojo {
 
     /**
      * Maximum time (ms) to wait to acquire a file lock.
-     *
      * Customize the time when using the plugin to download the same file
      * from several submodules in parallel build.
      */
@@ -281,15 +316,13 @@ public class WGetMojo extends AbstractMojo {
 
     /**
      * {@link FileMapper}s to be used for rewriting each target path, or {@code null} if no rewriting shall happen.
-     *
      * @since 1.6.8
      */
     @Parameter(property = "download.fileMappers")
     private FileMapper[] fileMappers;
 
     /**
-     * If {@code true}, preemptive authentication will be used
-     *
+     * If {@code true}, preemptive authentication will be used.
      * @since 1.6.9
      */
     @Parameter(property = "preemptiveAuth", defaultValue = "false")
@@ -297,11 +330,10 @@ public class WGetMojo extends AbstractMojo {
 
     /**
      * Files to include when unpacking.
-     * 
+     *
      * <p>If left empty all files will be eligible to be unpacked.</p>
-
+     *
      * <p>Entries are interpreted as Ant-style path patterns.</p>
-     * 
      * @since 1.9.0
      */
     @Parameter(property = "download.unpack.includes")
@@ -311,132 +343,135 @@ public class WGetMojo extends AbstractMojo {
      * Files to ignore when unpacking.
      *
      * <p>If left empty no file will be excluded when unpacking.</p>
-
-     * <p>Entries are interpreted as Ant-style path patterns.</p>
      *
+     * <p>Entries are interpreted as Ant-style path patterns.</p>
      * @since 1.9.0
      */
     @Parameter(property = "download.unpack.excludes")
     private String[] excludes;
 
-    private static final PoolingHttpClientConnectionManager CONN_POOL;
-
     /**
-     * A map of file caches by their location paths.
-     * Ensures one cache instance per path and enables safe execution in parallel
-     * builds against the same cache.
-     */
-    private static final Map<String, DownloadCache> DOWNLOAD_CACHES = new ConcurrentHashMap<>();
-
-    /**
-     * A map of file locks by files to be downloaded.
-     * Ensures exclusive access to a target file.
-     */
-    private static final Map<String, Lock> FILE_LOCKS = new ConcurrentHashMap<>();
-
-    static {
-        CONN_POOL = new PoolingHttpClientConnectionManager(
-                RegistryBuilder.<ConnectionSocketFactory>create()
-                        .register("http", PlainConnectionSocketFactory.getSocketFactory())
-                        .register("https", new SSLConnectionSocketFactory(
-                                SSLContexts.createSystemDefault(),
-                                SSLProtocols.supported(),
-                                null,
-                                SSLConnectionSocketFactory.getDefaultHostnameVerifier()))
-                        .build(),
-                null,
-                null,
-                null,
-                1,
-                TimeUnit.MINUTES);
-    }
-
-
-    /**
-     * Ensures that the output directory does not contain unresolved path variables, i.e. when running without a pom.xml.
-     * If unresolved path variables are detected, set the output directory to the current working directory.
-     *
-     * @since 1.7.2
-     * @throws MojoExecutionException If the current working directory could not be resolved. This should never happen.
-     */
-    private void adjustOutputDirectory() throws MojoExecutionException {
-      if (this.outputDirectory.getPath().contains("${")) {
-        getLog().info(format("Could not resolve outputDirectory '%s'. Consider using -Ddownload.outputDirectory=.", this.outputDirectory.getPath()));
-        this.outputDirectory = new File(".");
-        try {
-          getLog().info("Adjusting outputDirectory to " + this.outputDirectory.getCanonicalPath());
-        } catch (IOException e) {
-          throw new MojoExecutionException("Current working directory could not be resolved. This should never happen.");
-        }
-      }
-    }
-
-    /**
-     * If {@code true}, SSL certificate verification is skipped
-     *
+     * If {@code true}, SSL certificate verification is skipped.
      * @since 1.8.1
      */
     @Parameter(property = "insecure", defaultValue = "false")
     private boolean insecure;
 
+    static {
+        CONN_POOL = new PoolingHttpClientConnectionManager(
+            RegistryBuilder.<ConnectionSocketFactory>create()
+                .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                .register("https", new SSLConnectionSocketFactory(
+                    SSLContexts.createSystemDefault(),
+                    SSLProtocols.supported(),
+                    null,
+                    SSLConnectionSocketFactory.getDefaultHostnameVerifier()
+                ))
+                .build(),
+            null,
+            null,
+            null,
+            1,
+            TimeUnit.MINUTES
+        );
+    }
+
+    /**
+     * Ensures that the output directory does not contain unresolved path variables, i.e. when
+     * running without a pom.xml.
+     * If unresolved path variables are detected, set the output directory to the current working
+     * directory.
+     * @throws MojoExecutionException If the current working directory could not be resolved.
+     * This should never happen.
+     * @since 1.7.2
+     */
+    private void adjustOutputDirectory() throws MojoExecutionException {
+        if (this.outputDirectory.getPath().contains("${")) {
+            this.getLog().info(
+                String.format(
+                    "Could not resolve outputDirectory '%s'.  Consider using -Ddownload.outputDirectory=.",
+                    this.outputDirectory.getPath()
+                )
+            );
+            this.outputDirectory = new File(".");
+            try {
+                this.getLog().info(
+                    String.format(
+                        "Adjusting outputDirectory to %s", this.outputDirectory.getCanonicalPath()
+                    )
+                );
+            } catch (final IOException exc) {
+                throw new MojoExecutionException(
+                    "Current working directory could not be resolved. This should never happen.",
+                    exc
+                );
+            }
+        }
+    }
+
     /**
      * Method call when the mojo is executed for the first time.
-     *
-     * @throws MojoExecutionException if an error is occuring in this mojo.
-     * @throws MojoFailureException   if an error is occuring in this mojo.
+     * @throws MojoExecutionException if an error is occurring in this mojo.
+     * @throws MojoFailureException if an error is occurring in this mojo.
      */
+    @SuppressWarnings(
+        {
+            "checkstyle:ReturnCount", "checkstyle:JavaNCSS", "checkstyle:NPathComplexity",
+            "checkstyle:ExecutableStatementCount", "checkstyle:NestedIfDepth", "checkstyle:IllegalCatch"
+        }
+    )
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
-            getLog().info("maven-download-plugin:wget skipped");
+            this.getLog().info("maven-download-plugin:wget skipped");
             return;
         }
-
         if (this.runOnlyAtRoot && !this.session.getCurrentProject().isExecutionRoot()) {
-            getLog().info("maven-download-plugin:wget skipped (not project root)");
+            this.getLog().info("maven-download-plugin:wget skipped (not project root)");
             return;
         }
-
-        if (isNotBlank(this.serverId) && (isNotBlank(this.username) || isNotBlank(this.password))) {
+        if (
+            StringUtils.isNotBlank(this.serverId)
+                && (StringUtils.isNotBlank(this.username) || StringUtils.isNotBlank(this.password))
+        ) {
             throw new MojoExecutionException("Specify either serverId or username/password, not both");
         }
-
         if (this.session.getSettings() == null) {
-            getLog().warn("settings is null");
+            this.getLog().warn("settings is null");
         }
         if (this.session.getSettings().isOffline()) {
-            getLog().debug("maven-download-plugin:wget offline mode");
+            this.getLog().debug("maven-download-plugin:wget offline mode");
         }
-        getLog().debug("Got settings");
+        this.getLog().debug("Got settings");
         if (this.retries < 1) {
             throw new MojoFailureException("retries must be at least 1");
         }
-
         final Optional<DownloadCache> cache;
         if (!this.skipCache) {
             if (this.cacheDirectory == null) {
                 this.cacheDirectory = new File(this.session.getLocalRepository()
-                        .getBasedir(), ".cache/download-maven-plugin");
+                    .getBasedir(), ".cache/download-maven-plugin");
             } else if (this.cacheDirectory.exists() && !this.cacheDirectory.isDirectory()) {
-                throw new MojoFailureException(String.format("cacheDirectory is not a directory: "
-                        + this.cacheDirectory.getAbsolutePath()));
+                throw new MojoFailureException(
+                    String.format("cacheDirectory is not a directory: %s", this.cacheDirectory.getAbsolutePath())
+                );
             }
-            getLog().debug("Cache is: " + this.cacheDirectory.getAbsolutePath());
+            this.getLog().debug(String.format("Cache is: %s", this.cacheDirectory.getAbsolutePath()));
             cache = Optional.of(DOWNLOAD_CACHES.computeIfAbsent(
-                    cacheDirectory.getAbsolutePath(),
-                    directory -> new DownloadCache(this.cacheDirectory, getLog())));
+                this.cacheDirectory.getAbsolutePath(),
+                directory -> new DownloadCache(this.cacheDirectory, this.getLog())
+            ));
         } else {
-            getLog().debug("Cache is skipped");
+            this.getLog().debug("Cache is skipped");
             cache = Optional.empty();
         }
-
         // PREPARE
-        adjustOutputDirectory();
-        if (outputDirectory.exists() && !outputDirectory.isDirectory())
-        {
-            throw new MojoExecutionException("outputDirectory is not a directory: " + outputDirectory.getAbsolutePath());
+        this.adjustOutputDirectory();
+        if (this.outputDirectory.exists() && !this.outputDirectory.isDirectory()) {
+            throw new MojoExecutionException(
+                "outputDirectory is not a directory: " + this.outputDirectory.getAbsolutePath());
         } else {
-            outputDirectory.mkdirs();
+            this.outputDirectory.mkdirs();
         }
         if (this.outputFileName == null) {
             this.outputFileName = FileNameUtils.getOutputFileName(this.uri);
@@ -445,7 +480,6 @@ public class WGetMojo extends AbstractMojo {
         final Lock fileLock = FILE_LOCKS.computeIfAbsent(
             outputFile.getAbsolutePath(), ignored -> new ReentrantLock()
         );
-
         final Checksums checksums = new Checksums(
             this.md5, this.sha1, this.sha256, this.sha512, this.getLog()
         );
@@ -463,7 +497,7 @@ public class WGetMojo extends AbstractMojo {
                 if (this.failOnError) {
                     throw new MojoExecutionException(message);
                 } else {
-                    getLog().warn(message);
+                    this.getLog().warn(message);
                     return;
                 }
             }
@@ -473,10 +507,14 @@ public class WGetMojo extends AbstractMojo {
                 if (this.alwaysVerifyChecksum || this.checkSignature) {
                     try {
                         checksums.validate(outputFile);
-                    } catch (final MojoFailureException e) {
-                        getLog().warn("The local version of file " + outputFile.getName()
-                                + " doesn't match the expected checksum. "
-                                + "You should consider checking the specified checksum is correctly set.");
+                    } catch (final MojoFailureException exc) {
+                        this.getLog().warn(
+                            String.format(
+                                "The local version of file %s %s %s", outputFile.getName(),
+                                "doesn't match the expected checksum.",
+                                "You should consider checking the specified checksum is correctly set."
+                            )
+                        );
                         checksumMatch = false;
                     }
                 }
@@ -484,30 +522,30 @@ public class WGetMojo extends AbstractMojo {
                     outputFile.delete();
                     haveFile = false;
                 } else {
-                    getLog().info("File already exists, skipping");
+                    this.getLog().info("File already exists, skipping");
                 }
             }
-
             Optional<File> cachedFile = Optional.empty();
             boolean fileWasCached = false;
             if (!haveFile) {
                 cachedFile = cache.map(c -> c.getArtifact(this.uri, checksums));
                 fileWasCached = cachedFile.map(File::exists).orElse(false);
                 if (fileWasCached) {
-                    getLog().debug("File was cached: " + cachedFile.get().getAbsolutePath());
+                    this.getLog().debug("File was cached: " + cachedFile.get().getAbsolutePath());
                     if (!this.unpack && !this.unpackWhenChanged) {
                         // only copy cached file to output file
                         // if it won't be unpacked, otherwise unpack
                         // directly from cached file below
-                        getLog().debug("Copying cached file to " + outputFile.getAbsolutePath());
+                        this.getLog().debug("Copying cached file to " + outputFile.getAbsolutePath());
                         Files.copy(cachedFile.get().toPath(), outputFile.toPath());
                     }
                 } else {
                     if (this.session.getRepositorySession().isOffline()) {
                         if (this.failOnError) {
-                            throw new MojoExecutionException("No file in cache and maven is in offline mode");
+                            throw new MojoExecutionException(
+                                "No file in cache and maven is in offline mode");
                         } else {
-                            getLog().warn("Ignoring download failure.");
+                            this.getLog().warn("Ignoring download failure.");
                         }
                     }
                     boolean done = false;
@@ -516,29 +554,31 @@ public class WGetMojo extends AbstractMojo {
                             this.doGet(outputFile);
                             checksums.validate(outputFile);
                             done = true;
-                        } catch (DownloadFailureException ex) {
+                        } catch (final DownloadFailureException ex) {
                             // treating HTTP codes >= 500 as transient and thus always retriable
-                            if (this.failOnError && ex.getHttpCode() < 500) {
+                            if (this.failOnError && ex.getHttpCode() < HttpCodes.INTERNAL_SERVER_ERROR.getCode()) {
                                 throw new MojoExecutionException(ex.getMessage(), ex);
                             } else {
-                                getLog().warn(ex.getMessage());
+                                this.getLog().warn(ex.getMessage());
                             }
-                        } catch (IOException ex) {
+                        } catch (final IOException ex) {
                             if (this.failOnError) {
                                 throw new MojoExecutionException(ex.getMessage(), ex);
                             } else {
-                                getLog().warn(ex.getMessage());
+                                this.getLog().warn(ex.getMessage());
                             }
                         }
                         if (!done) {
-                            getLog().warn("Retrying (" + (retriesLeft - 1) + " more)");
+                            this.getLog().warn(String.format("Retrying (%d more)", retriesLeft - 1));
                         }
                     }
                     if (!done) {
                         if (this.failOnError) {
-                            throw new MojoFailureException("Could not get content after " + this.retries + " failed attempts.");
+                            throw new MojoFailureException(
+                                String.format("Could not get content after %d failed attempts.", this.retries)
+                            );
                         } else {
-                            getLog().warn("Ignoring download failure(s).");
+                            this.getLog().warn("Ignoring download failure(s).");
                             return;
                         }
                     }
@@ -549,25 +589,27 @@ public class WGetMojo extends AbstractMojo {
             }
             if (this.unpack || this.unpackWhenChanged) {
                 if (!this.unpack && this.unpackWhenChanged && fileWasCached) {
-                    getLog().info("Skipping unpacking as the file has not changed");
+                    this.getLog().info("Skipping unpacking as the file has not changed");
                 } else {
                     if (this.unpackWhenChanged && fileWasCached) {
-                        getLog().info("Unpacking even though unchanged cache file exists because unpack = true");
+                        this.getLog().info(
+                            "Unpacking even though unchanged cache file exists because unpack = true"
+                        );
                     }
                     this.unpack(outputFile, cachedFile);
                     this.buildContext.refresh(this.outputDirectory);
                 }
             } else {
-            	this.buildContext.refresh(outputFile);
+                this.buildContext.refresh(outputFile);
             }
-        } catch (MojoExecutionException e) {
-            throw e;
-        } catch (IOException ex) {
-            throw new MojoExecutionException("IO Error: ", ex);
-        } catch (NoSuchArchiverException e) {
-            throw new MojoExecutionException("No such archiver: " + e.getMessage());
-        } catch (Exception e) {
-            throw new MojoExecutionException("General error: ", e);
+        } catch (final MojoExecutionException exc) {
+            throw exc;
+        } catch (final IOException exc) {
+            throw new MojoExecutionException("IO Error: ", exc);
+        } catch (final NoSuchArchiverException exc) {
+            throw new MojoExecutionException(String.format("No such archiver: %s)", exc.getMessage()));
+        } catch (final Exception exc) {
+            throw new MojoExecutionException("General error: ", exc);
         } finally {
             if (lockAcquired) {
                 fileLock.unlock();
@@ -575,8 +617,15 @@ public class WGetMojo extends AbstractMojo {
         }
     }
 
-    private void unpack(File outputFile, Optional<File> cachedFile) throws NoSuchArchiverException {
-        UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
+    /**
+     * Unpacks the given output file or cached file using an appropriate UnArchiver.
+     * @param outputFile The file intended to be unpacked.
+     * @param cachedFile An optional cached file that might be used instead of the output file.
+     * @throws NoSuchArchiverException If there is no suitable UnArchiver for the output file.
+     * @throws IllegalStateException If neither outputFile nor cachedFile exist for unpacking.
+     */
+    private void unpack(final File outputFile, final Optional<File> cachedFile) throws NoSuchArchiverException {
+        final UnArchiver unarchiver = this.archiverManager.getUnArchiver(outputFile);
         if (cachedFile.isPresent() && cachedFile.get().exists()) {
             unarchiver.setSourceFile(cachedFile.get());
         } else if (outputFile.exists()) {
@@ -585,8 +634,11 @@ public class WGetMojo extends AbstractMojo {
             throw new IllegalStateException("No file to unpack");
         }
         if (isFileUnArchiver(unarchiver)) {
-            unarchiver.setDestFile(new File(this.outputDirectory, this.outputFileName.substring(0,
-                    this.outputFileName.lastIndexOf('.'))));
+            unarchiver.setDestFile(
+                new File(
+                    this.outputDirectory, this.outputFileName.substring(0, this.outputFileName.lastIndexOf('.'))
+                )
+            );
         } else {
             unarchiver.setDestDirectory(this.outputDirectory);
         }
@@ -598,64 +650,75 @@ public class WGetMojo extends AbstractMojo {
         }
     }
 
-    private boolean isFileUnArchiver(final UnArchiver unarchiver) {
-        return unarchiver instanceof  BZip2UnArchiver ||
-                unarchiver instanceof GZipUnArchiver ||
-                unarchiver instanceof SnappyUnArchiver ||
-                unarchiver instanceof XZUnArchiver;
+    /**
+     * Determines if the provided UnArchiver instance is of a supported file format
+     * that indicates it is a file unarchiver.
+     * @param unarchiver The UnArchiver instance to check.
+     * @return True if the unarchiver is an instance of supported types; false otherwise.
+     */
+    private static boolean isFileUnArchiver(final UnArchiver unarchiver) {
+        return unarchiver instanceof BZip2UnArchiver
+            || unarchiver instanceof GZipUnArchiver
+            || unarchiver instanceof SnappyUnArchiver
+            || unarchiver instanceof XZUnArchiver;
     }
 
-    private static RemoteRepository createRemoteRepository(String serverId, URI uri)
-    {
-        return new RemoteRepository.Builder(isBlank(serverId)
-                    ? null
-                    : serverId,
-                isBlank(serverId)
-                    ? uri.getScheme()
-                    : null,
-                isBlank(serverId)
-                    ? uri.getScheme() + "://" + uri.getHost()
-                    : null)
-                .build();
+    /**
+     * Creates a remote repository with the given server ID and URI.
+     * @param serverId The server ID to associate with the remote repository. If blank, certain default
+     *  settings will be applied based on the URI's scheme and host.
+     * @param uri The URI of the remote repository.
+     * @return A configured instance of RemoteRepository.
+     */
+    private static RemoteRepository createRemoteRepository(final String serverId, final URI uri) {
+        return new RemoteRepository.Builder(
+            StringUtils.isBlank(serverId) ? null : serverId,
+            StringUtils.isBlank(serverId) ? uri.getScheme() : null,
+            StringUtils.isBlank(serverId) ? String.format("%s://%s", uri.getScheme(), uri.getHost()) : null
+        ).build();
     }
 
     /**
      * Determines whether to show transfer progress. Progress is shown if the
-     * session is interactive and the transfer listener is null or not a
-     * QuietMavenTransferListener.
-     *
-     * @param session the current Maven session
-     * @return whether to show transfer progress
+     * session is interactive and the transfer listener is null or not a QuietMavenTransferListener.
+     * @param session The current Maven session.
+     * @return Whether to show transfer progress.
      */
-    private boolean showTransferProgress(final MavenSession session) {
-        if (!session.getSettings().isInteractiveMode()) {
-            return false;
+    private static boolean showTransferProgress(final MavenSession session) {
+        final boolean result;
+        if (session.getSettings().isInteractiveMode()) {
+            final TransferListener transferListener = session.getRequest().getTransferListener();
+            if (transferListener == null) {
+                result = true;
+            } else {
+                result = !"QuietMavenTransferListener".equals(transferListener.getClass().getSimpleName());
+            }
+        } else {
+            result = false;
         }
-        TransferListener transferListener = session.getRequest().getTransferListener();
-        if (transferListener == null) {
-            return true;
-        }
-        return !"QuietMavenTransferListener".equals(transferListener.getClass().getSimpleName());
+        return result;
     }
 
+    /**
+     * Downloads a file from a remote repository and stores it to the specified output file.
+     * @param outputFile The file to which the downloaded content will be saved.
+     * @throws IOException If an I/O error occurs during the file download.
+     * @throws MojoExecutionException If an error specific to Maven Mojo execution occurs.
+     */
     private void doGet(final File outputFile) throws IOException, MojoExecutionException {
         final HttpFileRequester.Builder fileRequesterBuilder = new HttpFileRequester.Builder();
-
         final RemoteRepository repository = createRemoteRepository(this.serverId, this.uri);
-
         // set proxy if present
         Optional.ofNullable(this.session.getRepositorySession().getProxySelector())
-                .map(selector -> selector.getProxy(repository))
-                .ifPresent(proxy -> addProxy(fileRequesterBuilder, repository, proxy));
-
+            .map(selector -> selector.getProxy(repository))
+            .ifPresent(proxy -> this.addProxy(fileRequesterBuilder, repository, proxy));
         Optional.ofNullable(this.session.getRepositorySession().getAuthenticationSelector())
-                .map(selector -> selector.getAuthentication(repository))
-                .ifPresent(auth -> addAuthentication(fileRequesterBuilder, repository, auth));
-
+            .map(selector -> selector.getAuthentication(repository))
+            .ifPresent(auth -> this.addAuthentication(fileRequesterBuilder, repository, auth));
         final HttpFileRequester fileRequester = fileRequesterBuilder
             .withProgressReport(showTransferProgress(this.session)
-                    ? new LoggingProgressReport(this.getLog())
-                    : new SilentProgressReport(this.getLog()))
+                ? new LoggingProgressReport(this.getLog())
+                : new SilentProgressReport(this.getLog()))
             .withConnectTimeout(this.readTimeOut)
             .withSocketTimeout(this.readTimeOut)
             .withUri(this.uri)
@@ -665,25 +728,36 @@ public class WGetMojo extends AbstractMojo {
             .withPreemptiveAuth(this.preemptiveAuth)
             .withMavenSession(this.session)
             .withSecDispatcher(this.securityDispatcher)
-                .withRedirectsEnabled(this.followRedirects)
-                .withLog(this.getLog())
-                .withInsecure(this.insecure)
-                .build();
-        fileRequester.download(outputFile, getAdditionalHeaders());
+            .withRedirectsEnabled(this.followRedirects)
+            .withLog(this.getLog())
+            .withInsecure(this.insecure)
+            .build();
+        fileRequester.download(outputFile, this.getAdditionalHeaders());
     }
 
-    private void addProxy(final HttpFileRequester.Builder fileRequesterBuilder,
-                          final RemoteRepository repository,
-                          final Proxy proxy) {
+    /**
+     * Configures the provided HttpFileRequester.Builder with proxy settings derived
+     * from the specified Proxy and RemoteRepository.
+     * @param fileRequesterBuilder The builder for HttpFileRequester to configure with proxy settings.
+     * @param repository The remote repository for which the proxy settings should be applied.
+     * @param proxy The proxy whose settings (host, port, and authentication) will be used for the configuration.
+     */
+    private void addProxy(
+        final HttpFileRequester.Builder fileRequesterBuilder,
+        final RemoteRepository repository,
+        final Proxy proxy
+    ) {
         fileRequesterBuilder.withProxyHost(proxy.getHost());
         fileRequesterBuilder.withProxyPort(proxy.getPort());
-
         final RemoteRepository proxyRepo = new RemoteRepository.Builder(repository)
-                .setProxy(proxy)
-                .build();
-
-        try ( final AuthenticationContext ctx = AuthenticationContext.forProxy(this.session.getRepositorySession(),
-                proxyRepo) ) {
+            .setProxy(proxy)
+            .build();
+        try (
+            AuthenticationContext ctx = AuthenticationContext.forProxy(
+                this.session.getRepositorySession(),
+                proxyRepo
+            )
+        ) {
             if (ctx != null) {
                 fileRequesterBuilder.withProxyUserName(ctx.get(AuthenticationContext.USERNAME));
                 fileRequesterBuilder.withProxyPassword(ctx.get(AuthenticationContext.PASSWORD));
@@ -693,34 +767,48 @@ public class WGetMojo extends AbstractMojo {
         }
     }
 
-    private void addAuthentication(final HttpFileRequester.Builder fileRequesterBuilder,
-                                   final RemoteRepository repository,
-                                   final Authentication authentication) {
+    /**
+     * Configures the provided HttpFileRequester.Builder with authentication settings derived
+     * from the specified RemoteRepository and Authentication instances.
+     * @param fileRequesterBuilder The builder for HttpFileRequester to configure with authentication settings.
+     * @param repository The remote repository for which the authentication settings should be applied.
+     * @param authentication The authentication credentials to use for configuring the file requester.
+     */
+    private void addAuthentication(
+        final HttpFileRequester.Builder fileRequesterBuilder,
+        final RemoteRepository repository,
+        final Authentication authentication
+    ) {
         final RemoteRepository authRepo = new RemoteRepository.Builder(repository)
-                .setAuthentication(authentication)
-                .build();
-        try (final AuthenticationContext authCtx = AuthenticationContext.forRepository(
+            .setAuthentication(authentication)
+            .build();
+        try (
+            AuthenticationContext authCtx = AuthenticationContext.forRepository(
                 this.session.getRepositorySession(),
-                authRepo)) {
-            final String username = authCtx.get(AuthenticationContext.USERNAME);
-            final String password = authCtx.get(AuthenticationContext.PASSWORD);
+                authRepo
+            )
+        ) {
+            final String uname = authCtx.get(AuthenticationContext.USERNAME);
+            final String pass = authCtx.get(AuthenticationContext.PASSWORD);
             final String ntlmDomain = authCtx.get(AuthenticationContext.NTLM_DOMAIN);
             final String ntlmHost = authCtx.get(AuthenticationContext.NTLM_WORKSTATION);
-
-            getLog().debug("providing custom authentication");
-            getLog().debug("username: " + username + " and password: ***");
-
-            fileRequesterBuilder.withUsername(username);
-            fileRequesterBuilder.withPassword(password);
+            this.getLog().debug("providing custom authentication");
+            this.getLog().debug(String.format("username: %s and password: ***", uname));
+            fileRequesterBuilder.withUsername(uname);
+            fileRequesterBuilder.withPassword(pass);
             fileRequesterBuilder.withNtlmDomain(ntlmDomain);
             fileRequesterBuilder.withNtlmHost(ntlmHost);
         }
     }
 
+    /**
+     * Constructs additional HTTP headers for requests.
+     * @return A list of headers derived from the internal headers map.
+     */
     private List<Header> getAdditionalHeaders() {
-        return headers.entrySet().stream()
-                .map(pair -> new BasicHeader(pair.getKey(), pair.getValue()))
-                .collect(Collectors.toList());
+        return this.headers.entrySet().stream()
+            .map(pair -> new BasicHeader(pair.getKey(), pair.getValue()))
+            .collect(Collectors.toList());
     }
 
     /**
@@ -737,7 +825,7 @@ public class WGetMojo extends AbstractMojo {
             if (this.excludes.length != 0) {
                 fileSelector.setExcludes(this.excludes);
             }
-            unarchiver.setFileSelectors(new FileSelector[]{ fileSelector });
+            unarchiver.setFileSelectors(new FileSelector[]{fileSelector});
         }
     }
 }
