@@ -70,6 +70,9 @@ import static org.mockito.Mockito.*;
  * @author Andrzej Jarmoniuk
  */
 public class WGetMojoTest {
+
+    private static final String LOCATION_HEADER = "Location";
+
     @Rule
     public WireMockRule wireMock = new WireMockRule(options().dynamicPort());
     @Rule
@@ -751,7 +754,7 @@ public class WGetMojoTest {
 
     private void testRedirect(int code) {
         this.wireMock.stubFor(get(urlEqualTo("/" + code))
-                .willReturn(aResponse().withStatus(code).withHeader(LOCATION, "/hello")));
+                .willReturn(aResponse().withStatus(code).withHeader(LOCATION_HEADER, "/hello")));
         this.wireMock.stubFor(get(urlEqualTo("/hello")).willReturn(ok("Hello, world!\n")));
         try {
             createMojo(m -> {
@@ -775,7 +778,7 @@ public class WGetMojoTest {
 
     private void testNoRedirects(int code) {
         this.wireMock.stubFor(get(urlEqualTo("/" + code))
-                .willReturn(aResponse().withStatus(code).withHeader(LOCATION, "/hello")));
+                .willReturn(aResponse().withStatus(code).withHeader(LOCATION_HEADER, "/hello")));
         this.wireMock.stubFor(get(urlEqualTo("/hello")).willReturn(ok("Hello, world!\n")));
         Log log = spy(SystemStreamLog.class);
         StringBuilder loggedWarningMessages = new StringBuilder();
