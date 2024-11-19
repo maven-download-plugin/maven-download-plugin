@@ -415,11 +415,12 @@
             <artifactId>plexus-io</artifactId>
             <version>3.5.0</version>
         </dependency>
+        <!-- Used for password decryption -->
         <dependency>
             <groupId>org.codehaus.plexus</groupId>
             <artifactId>plexus-xml</artifactId>
             <version>4.0.4</version>
-            <scope>provided</scope>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.sonatype.plexus</groupId>
