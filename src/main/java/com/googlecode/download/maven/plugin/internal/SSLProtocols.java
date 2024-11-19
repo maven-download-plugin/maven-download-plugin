@@ -56,8 +56,8 @@ public final class SSLProtocols {
     /**
      * Define runtime supports {@code TLS1.3}.
      * @return True if supports.
-     * @checkstyle MethodName (5 lines)
      */
+    @SuppressWarnings("checkstyle:MethodName")
     private static boolean isTls13Supported() {
         try {
             return Arrays.asList(SSLContext.getDefault().getSupportedSSLParameters().getProtocols())

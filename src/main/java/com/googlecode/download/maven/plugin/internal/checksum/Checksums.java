@@ -50,9 +50,8 @@ public final class Checksums {
      * @param sha256 Supplied sha256 checksum, may be {@literal null}.
      * @param sha512 Supplied sha512 checksum, may be {@literal null}.
      * @param log Logger.
-     * @checkstyle ParameterName (10 lines)
      */
-    @SuppressWarnings("checkstyle:LineLength")
+    @SuppressWarnings({"checkstyle:LineLength", "checkstyle:ParameterName"})
     public Checksums(
         @Nullable final String md5, @Nullable final String sha1,
         @Nullable final String sha256, @Nullable final String sha512,
@@ -72,11 +71,11 @@ public final class Checksums {
      * @return True if the file matches all supplied checksums
      *  or if no checksums were supplied.
      */
+    @SuppressWarnings("checkstyle.IllegalCatch")
     public boolean isValid(final File file) {
         boolean valid = true;
         try {
             this.validate(file);
-            // @checkstyle IllegalCatch (1 line)
         } catch (final Exception ex) {
             valid = false;
         }
@@ -105,8 +104,8 @@ public final class Checksums {
      * @param sha512 Supplied sha512 checksum, may be {@literal null}.
      * @return A map of a checksum type to a digest; {@literal null} digests
      *  are not included.
-     * @checkstyle ParameterName (10 lines)
      */
+    @SuppressWarnings("checkstyle:ParameterName")
     private static Map<Checksum, String> create(
         @Nullable final String md5, @Nullable final String sha1,
         @Nullable final String sha256, @Nullable final String sha512
