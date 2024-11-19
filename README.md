@@ -79,10 +79,6 @@ To get a more detailed help, type command :
 mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
 ```
 
-### Mailing-list
-
-See https://groups.google.com/forum/?fromgroups#!forum/maven-download-plugin
-
 ### Issue Tracker and wikis...
 
 Are maintained at GitHub (links above).
@@ -94,6 +90,3 @@ Ideally, every bugfix should be supplied with a unit or integration test.
 
 Build requirements are specified in `.tools-versions`.
 
-## Other links
-
-Former project page at Google Code: http://code.google.com/p/maven-download-plugin/

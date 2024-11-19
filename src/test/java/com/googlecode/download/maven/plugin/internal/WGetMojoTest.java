@@ -463,7 +463,7 @@ public class WGetMojoTest {
      * The plugin should always overwrite the output file (even if it has the same content) if {@code overwrite}
      * is {@code true} and {@code skipCache} is {@code true}.
      *
-     * @see <a href="https://github.com/maven-download-plugin/maven-download-plugin/issues/194">#194</a>
+     * @see <a href="https://github.com/download-maven-plugin/download-maven-plugin/issues/194">#194</a>
      */
     @Test
     public void testOverwriteWithSkipCache() throws MojoExecutionException, MojoFailureException, IOException, InterruptedException {

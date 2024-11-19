@@ -166,7 +166,7 @@ public final class ArtifactMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException {
         if (this.skip) {
-            this.getLog().info("maven-download-plugin:artifact skipped");
+            this.getLog().info("download-maven-plugin:artifact skipped");
             return;
         }
         if (this.dependencyDepth > 0 && this.outputFileName != null) {
