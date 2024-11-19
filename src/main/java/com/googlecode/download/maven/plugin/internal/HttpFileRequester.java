@@ -94,6 +94,7 @@ public final class HttpFileRequester {
      * Downloads the resource with the given URI to the specified local file system location.
      * @param outputFile The output file.
      * @param headers List of headers.
+     * @throws IOException Thrown if I/O operations don't succeed.
      */
     public void download(final File outputFile, final List<Header> headers) throws IOException {
         try (CloseableHttpClient httpClient = this.createHttpClientBuilder().build()) {

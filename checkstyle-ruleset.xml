@@ -125,11 +125,6 @@
         <property name="optional" value="false"/>
     </module>
     <module name="SuppressWarningsFilter"/>
-    <module name="SuppressWithPlainTextCommentFilter">
-        <property name="offCommentFormat" value="@checkstyle ([\w\|]+) off"/>
-        <property name="onCommentFormat" value="@checkstyle ([\w\|]+) on"/>
-        <property name="checkFormat" value="$1"/>
-    </module>
     <module name="LineLength">
         <property name="fileExtensions" value="java"/>
         <property name="max" value="120"/>
@@ -139,11 +134,6 @@
     <module name="TreeWalker">
         <module name="SuppressWarningsHolder"/>
 
-        <module name="SuppressWithNearbyCommentFilter">
-            <property name="commentFormat" value="@checkstyle (\w+) \((\d+) lines?\)"/>
-            <property name="checkFormat" value="$1"/>
-            <property name="influenceFormat" value="$2"/>
-        </module>
         <!-- Checks for annotations. -->
         <module name="AnnotationUseStyle">
             <property name="elementStyle" value="compact_no_array"/>
@@ -237,7 +227,7 @@
         <module name="MissingJavadocType"/>
         <module name="JavadocStyle"/>
         <module name="AtclauseOrder">
-            <property name="tagOrder" value="@param, @return,                 @throws, @exception, @see, @since, @serial, @serialField,                 @serialData, @deprecated, @todo, @checkstyle"/>
+            <property name="tagOrder" value="@param, @return,                 @throws, @exception, @see, @since, @serial, @serialField,                 @serialData, @deprecated, @todo"/>
         </module>
         <!-- Metrics. -->
         <module name="BooleanExpressionComplexity"/>

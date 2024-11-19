@@ -246,8 +246,8 @@ public final class ArtifactMojo extends AbstractMojo {
      * of completion stages, which will contain the downloaded artifacts when complete.
      * @param artifact The artifact for which transitive dependencies need to be downloaded.
      * @return List of completion stages, which will contain the downloaded artifacts when complete.
-     * @checkstyle AnonInnerLength (50 lines)
      */
+    @SuppressWarnings("checkstyle:AnonInnerLength")
     private List<CompletionStage<Artifact>> resolveDependencyArtifacts(final Artifact artifact) {
         final Artifact pomArtifact = this.artifactFactory.createProjectArtifact(
             artifact.getGroupId(),
