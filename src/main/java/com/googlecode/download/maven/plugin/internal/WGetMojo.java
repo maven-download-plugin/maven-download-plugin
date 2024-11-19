@@ -216,7 +216,7 @@ public final class WGetMojo extends AbstractMojo {
     private boolean skipCache;
 
     /**
-     * The directory to use as a cache. Default is ${local-repo}/.cache/maven-download-plugin
+     * The directory to use as a cache. Default is ${local-repo}/.cache/download-maven-plugin
      */
     @Parameter(property = "download.cache.directory")
     private File cacheDirectory;
@@ -423,11 +423,11 @@ public final class WGetMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         if (this.skip) {
-            this.getLog().info("maven-download-plugin:wget skipped");
+            this.getLog().info("download-maven-plugin:wget skipped");
             return;
         }
         if (this.runOnlyAtRoot && !this.session.getCurrentProject().isExecutionRoot()) {
-            this.getLog().info("maven-download-plugin:wget skipped (not project root)");
+            this.getLog().info("download-maven-plugin:wget skipped (not project root)");
             return;
         }
         if (
@@ -440,7 +440,7 @@ public final class WGetMojo extends AbstractMojo {
             this.getLog().warn("settings is null");
         }
         if (this.session.getSettings().isOffline()) {
-            this.getLog().debug("maven-download-plugin:wget offline mode");
+            this.getLog().debug("download-maven-plugin:wget offline mode");
         }
         this.getLog().debug("Got settings");
         if (this.retries < 1) {
