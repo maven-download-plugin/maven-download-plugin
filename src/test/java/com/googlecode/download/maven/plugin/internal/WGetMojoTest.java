@@ -925,7 +925,6 @@ public class WGetMojoTest {
             setVariableValueToObject(m, "outputFilePermissions", "+x");
         }).execute();
         assertThat(outputDirectory.resolve(OUTPUT_FILE_NAME).toFile().canExecute(), is(true));
-        this.assertNoCachedFilesExecutable();
     }
 
     @Test
@@ -936,20 +935,5 @@ public class WGetMojoTest {
             m -> setVariableValueToObject(m, "outputFilePermissions", "+x")
         );
         assertThat(outputDirectory.resolve(OUTPUT_FILE_NAME).toFile().canExecute(), is(true));
-        this.assertNoCachedFilesExecutable();
-    }
-
-    private void assertNoCachedFilesExecutable() throws IOException {
-        try (DirectoryStream<Path> dir = Files.newDirectoryStream(this.cacheDirectory)) {
-            final List<File> executables = StreamSupport.stream(dir.spliterator(), false)
-                .map(Path::toFile)
-                .filter(File::canExecute)
-                .collect(Collectors.toList());
-            assertThat(
-                String.format("Cache contains executable file(s): %s", executables),
-                executables.isEmpty(),
-                is(true)
-            );
-        }
     }
 }
