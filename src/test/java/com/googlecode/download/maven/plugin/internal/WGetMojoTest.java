@@ -1,6 +1,8 @@
 package com.googlecode.download.maven.plugin.internal;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import java.nio.file.DirectoryStream;
+import java.util.stream.StreamSupport;
 import org.apache.http.*;
 import org.apache.http.client.cache.HeaderConstants;
 import org.apache.http.conn.routing.HttpRoute;
@@ -56,7 +58,6 @@ import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
-import static com.google.common.net.HttpHeaders.LOCATION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -240,13 +241,16 @@ public class WGetMojoTest {
 
     /**
      * Prepares reading from cache tests.
-     *
      * @param clientBuilderSupplier supplier for the initial (cached) response
      * @param firstMojoInitializer initializer for the mojo storing the response in cache
+     * @param secondMojoInitializer initializer for the mojo reading the response from cache
      * @throws Exception thrown if any exception is caught
      */
-    private void prepareReadingFromCache(Supplier<HttpClientBuilder> clientBuilderSupplier,
-                                 Consumer<WGetMojo> firstMojoInitializer)
+    private void prepareReadingFromCache(
+        final Supplier<HttpClientBuilder> clientBuilderSupplier,
+        final Consumer<WGetMojo> firstMojoInitializer,
+        final Consumer<WGetMojo> secondMojoInitializer
+    )
             throws Exception {
         final HttpClientBuilder firstAnswer = clientBuilderSupplier.get();
         // first mojo will get a cache miss
@@ -259,7 +263,7 @@ public class WGetMojoTest {
         final HttpClientBuilder secondAnswer = createClientBuilder(() -> "Goodbye!");
         try (MockedStatic<HttpClientBuilder> httpClientBuilder = mockStatic(HttpClientBuilder.class)) {
             httpClientBuilder.when(HttpClientBuilder::create).thenReturn(secondAnswer);
-            createMojo(__ -> {}).execute();
+            createMojo(secondMojoInitializer).execute();
         }
     }
 
@@ -272,7 +276,8 @@ public class WGetMojoTest {
     @Test
     public void testReadingFromCache() throws Exception {
         prepareReadingFromCache(() -> createClientBuilder(() -> "Hello, world!"),
-                __ -> {});
+                __ -> {}, __ -> {}
+        );
         // now, let's read that file
         assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
                 is("Hello, world!"));
@@ -443,9 +448,7 @@ public class WGetMojoTest {
         final Path outputPath = outputDirectory.resolve(OUTPUT_FILE_NAME);
         final FileTime firstModificationTime = Files.getLastModifiedTime(outputPath);
 
-        // apparently, Files.getLastModificationTime only offers a resolution up to seconds with Java 8
-        // see https://stackoverflow.com/questions/24804618/get-file-mtime-with-millisecond-resolution-from-java
-        Thread.sleep(1000);
+        Thread.sleep(1);
 
         createMojo(m -> {
             setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
@@ -746,7 +749,7 @@ public class WGetMojoTest {
                     } catch (UnsupportedEncodingException e) {
                         throw new RuntimeException(e);
                     }
-                }}), __ -> {});
+                }}), __ -> {}, __ -> {});
         // now, let's read that file
         assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
                 is("Hello, world!"));
@@ -820,7 +823,7 @@ public class WGetMojoTest {
                     } catch (UnsupportedEncodingException e) {
                         throw new RuntimeException(e);
                     }
-                }}), __ -> {});
+                }}), __ -> {}, __ -> {});
         // now, let's read that file
         assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
                 is("Hello, world!"));
@@ -841,7 +844,7 @@ public class WGetMojoTest {
                     } catch (UnsupportedEncodingException e) {
                         throw new RuntimeException(e);
                     }
-                }}), __ -> {});
+                }}), __ -> {}, __ -> {});
         // now, let's read that file
         assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
                 is("Hello, world!"));
@@ -903,10 +906,47 @@ public class WGetMojoTest {
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                }}), __ -> {});
+                }}), __ -> {}, __ -> {});
         // now, let's read that file
         assertThat(String.join("", Files.readAllLines(outputDirectory.resolve(OUTPUT_FILE_NAME))),
                 is(unencryptedResponse.trim()));
     }
 
+
+    @Test
+    public void setsFilePermOnDownload() throws MojoExecutionException, MojoFailureException, IOException {
+        this.wireMock.stubFor(get(anyUrl()).willReturn(ok("Hello")));
+        createMojo(m -> {
+            setVariableValueToObject(m, "uri", URI.create(wireMock.baseUrl()));
+            setVariableValueToObject(m, "skipCache", true);
+            setVariableValueToObject(m, "overwrite", true);
+            setVariableValueToObject(m, "outputFileName", OUTPUT_FILE_NAME);
+            setVariableValueToObject(m, "outputFilePermissions", "+x");
+        }).execute();
+        assertThat(outputDirectory.resolve(OUTPUT_FILE_NAME).toFile().canExecute(), is(true));
+        this.assertNoCachedFilesExecutable();
+    }
+
+    @Test
+    public void setsFilePermOnReadFromCache() throws Exception {
+        prepareReadingFromCache(
+            () -> createClientBuilder(() -> "Hello, world!"),
+            m -> setVariableValueToObject(m, "outputFilePermissions", "+x"),
+            m -> setVariableValueToObject(m, "outputFilePermissions", "+x")
+        );
+        assertThat(outputDirectory.resolve(OUTPUT_FILE_NAME).toFile().canExecute(), is(true));
+        this.assertNoCachedFilesExecutable();
+    }
+
+    private void assertNoCachedFilesExecutable() throws IOException {
+        try (DirectoryStream<Path> dir = Files.newDirectoryStream(this.cacheDirectory)) {
+            assertThat(
+                "Cache contains executable file(s)",
+                StreamSupport.stream(dir.spliterator(), false)
+                    .map(Path::toFile)
+                    .anyMatch(File::canExecute),
+                is(false)
+            );
+        }
+    }
 }

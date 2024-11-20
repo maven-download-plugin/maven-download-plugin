@@ -134,7 +134,6 @@ public final class WGetMojo extends AbstractMojo {
      * The md5 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
-    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.md5")
     private String md5;
 
@@ -142,7 +141,6 @@ public final class WGetMojo extends AbstractMojo {
      * The sha1 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
-    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.sha1")
     private String sha1;
 
@@ -150,7 +148,6 @@ public final class WGetMojo extends AbstractMojo {
      * The sha256 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
-    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.sha256")
     private String sha256;
 
@@ -158,7 +155,6 @@ public final class WGetMojo extends AbstractMojo {
      * The sha512 of the file. If set, file checksum will be compared to this
      * checksum and plugin will fail.
      */
-    @SuppressWarnings("checkstyle:MemberName")
     @Parameter(property = "download.verify.sha512")
     private String sha512;
 
@@ -356,6 +352,14 @@ public final class WGetMojo extends AbstractMojo {
      */
     @Parameter(property = "insecure", defaultValue = "false")
     private boolean insecure;
+
+    /**
+     * Set specific permission to output file.
+     * Currently, only {@code +x} option is supported to set executable permission.
+     * @since 1.13.0
+     */
+    @Parameter(property = "download.outputFilePermissions")
+    private String outputFilePermissions;
 
     static {
         CONN_POOL = new PoolingHttpClientConnectionManager(
@@ -587,6 +591,7 @@ public final class WGetMojo extends AbstractMojo {
             if (cache.isPresent()) {
                 cache.get().install(this.uri, outputFile, checksums);
             }
+            new FilePermissions(this.outputFilePermissions, this.getLog()).applyTo(outputFile);
             if (this.unpack || this.unpackWhenChanged) {
                 if (!this.unpack && this.unpackWhenChanged && fileWasCached) {
                     this.getLog().info("Skipping unpacking as the file has not changed");
