@@ -7,4 +7,7 @@
 <suppressions>
     <suppress files=".+Test.java" checks="[a-zA-Z0-9]*"/>
     <suppress files=".+SSLProtocols.java" checks="AbbreviationAsWordInName"/>
+
+    <!-- Because member names in Mojo are mapped to plugin config in XML -->
+    <suppress files=".+WGetMojo.java" checks="MemberName"/>
 </suppressions>
