@@ -2,6 +2,7 @@ package com.googlecode.download.maven.plugin.internal;
 
 import com.github.tomakehurst.wiremock.junit.WireMockRule;
 import java.nio.file.DirectoryStream;
+import java.util.List;
 import java.util.stream.StreamSupport;
 import org.apache.http.*;
 import org.apache.http.client.cache.HeaderConstants;
@@ -940,12 +941,14 @@ public class WGetMojoTest {
 
     private void assertNoCachedFilesExecutable() throws IOException {
         try (DirectoryStream<Path> dir = Files.newDirectoryStream(this.cacheDirectory)) {
+            final List<File> executables = StreamSupport.stream(dir.spliterator(), false)
+                .map(Path::toFile)
+                .filter(File::canExecute)
+                .collect(Collectors.toList());
             assertThat(
-                "Cache contains executable file(s)",
-                StreamSupport.stream(dir.spliterator(), false)
-                    .map(Path::toFile)
-                    .anyMatch(File::canExecute),
-                is(false)
+                String.format("Cache contains executable file(s): %s", executables),
+                executables.isEmpty(),
+                is(true)
             );
         }
     }
