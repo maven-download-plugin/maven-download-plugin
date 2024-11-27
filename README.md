@@ -4,6 +4,9 @@
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
 The plugin caches downloaded files in maven cache directory, which saves network traffic and speedup build.
 
+## IMPORTANT! Group ID relocation
+Starting from 2.0.0 the plugin has new group ID `io.github.download-maven-plugin`
+
 ## Project Status
 
 Functional but not under active development. We accept pull requests, and generally get them merged within a week or 2 depending on the complexity.
