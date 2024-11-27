@@ -1,8 +1,8 @@
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.googlecode.maven-download-plugin/download-maven-plugin)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.download-maven-plugin/download-maven-plugin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.download-maven-plugin/download-maven-plugin)
 
 # Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
-The plugin caches downloaded files in maven cache directory, which saves network trafic and speedup build.
+The plugin caches downloaded files in maven cache directory, which saves network traffic and speedup build.
 
 ## Project Status
 
@@ -16,7 +16,7 @@ Can be an alternative to [maven-dependency-plugin:get](http://maven.apache.org/p
 
 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:<LATEST_VERSION>:artifact -DgroupId=com.googlecode -DartifactId=maven-download-plugin -Dversion=0.1 -DoutputDirectory=temp
+mvn io.github.download-maven-plugin:download-maven-plugin:<LATEST_VERSION>:artifact -DgroupId=io.github.download-maven-plugin -DartifactId=download-maven-plugin -Dversion=2.0.0 -DoutputDirectory=temp
 ```
 
 ### "WGet" goal
@@ -24,7 +24,7 @@ This is meant to provide the necessary tooling for downloading anything in your 
 It provides caching and checksum verification.
 ```xml
 <plugin>
-	<groupId>com.googlecode.maven-download-plugin</groupId>
+	<groupId>io.github.download-maven-plugin</groupId>
 	<artifactId>download-maven-plugin</artifactId>
 	<version>LATEST_VERSION</version>
 	<executions>
@@ -47,7 +47,7 @@ It provides caching and checksum verification.
 
 You can also run it without a pom.xml i.e. 
 
-`mvn -Ddownload.url=https://example.com -Ddownload.outputDirectory=. -Ddownload.outputFileName=example.html com.googlecode.maven-download-plugin:download-maven-plugin:<LATEST_VERSION>:wget`
+`mvn -Ddownload.url=https://example.com -Ddownload.outputDirectory=. -Ddownload.outputFileName=example.html io.github.download-maven-plugin:download-maven-plugin:<LATEST_VERSION>:wget`
 
 ## Requirements
 
@@ -71,12 +71,12 @@ Happens when the plugin is instructed to unarchive file but the file has unsuppo
 
 To get basic plugin help, type in the command : 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:help
+mvn io.github.download-maven-plugin:download-maven-plugin:help
 ```
 
 To get a more detailed help, type command : 
 ```
-mvn com.googlecode.maven-download-plugin:download-maven-plugin:help -Ddetail
+mvn io.github.download-maven-plugin:download-maven-plugin:help -Ddetail
 ```
 
 ### Issue Tracker and wikis...
