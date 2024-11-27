@@ -1,4 +1,5 @@
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/io.github.download-maven-plugin/download-maven-plugin/badge.svg)](https://maven-badges.herokuapp.com/maven-central/io.github.download-maven-plugin/download-maven-plugin)
+[![Donate](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://www.paypal.com/donate/?business=STCX76K8KUT84&no_recurring=0&item_name=Support+download-maven-plugin+project&currency_code=USD)
 
 # Download Plugin for Maven
 This is a plugin meant to help maven user to download different files on different protocol in part of maven build.
