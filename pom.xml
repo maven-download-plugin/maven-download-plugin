@@ -297,6 +297,7 @@
                             <publishingServerId>central</publishingServerId>
                             <tokenAuth>true</tokenAuth>
                             <autoPublish>true</autoPublish>
+                            <deploymentName>${groupId}:${artifactId}:${version}</deploymentName>
                         </configuration>
                     </plugin>
                     <plugin>
